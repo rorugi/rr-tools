@@ -1,0 +1,26 @@
+{
+  "name": "rr-tools",
+  "version": "0.4.12",
+  "private": true,
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --serve"
+  },
+  "dependencies": {
+    "@remnote/plugin-sdk": "0.0.46",
+    "colord": "2.9.3",
+    "react": "17.0.2",
+    "react-dom": "17.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "17.0.89",
+    "@types/react-dom": "17.0.26",
+    "esbuild": "0.25.12",
+    "fflate": "0.8.2",
+    "jsdom": "26.1.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
