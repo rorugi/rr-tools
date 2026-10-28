@@ -1,4 +1,4 @@
-# RR Tools 0.4.12 practical test plan
+# RR Tools 0.4.13 practical test plan
 
 Run these checks yourself in scratch Rems. They are acceptance checks, not claimed live passes. Record RemNote version, OS, Word/browser version and color mode. Automated evidence is in VERIFICATION.md.
 
@@ -7,6 +7,7 @@ Run these checks yourself in scratch Rems. They are acceptance checks, not claim
 Practice must run in RemNote's own flashcard screen, never inside the popup. The popup only shows counts and two buttons: Start practice and Other practice modes…
 
 - Select two unrelated Rems plus an ordinary note. Run Practice Selected Flashcards from the command menu. Confirm the Rem/card/skipped counts, then click Start practice. The popup must close and RemNote's full flashcard screen must open with the title “RR Tools – Practice Selection”. Only due cards of the selected Rems should appear; no card from any other Rem, and never the global queue.
+- The popup must show “X due now · Y new · Z not due yet” matching the Cards table for the same cards (each card counted once). With only future cards selected, it must point to Practice All Flashcards.
 - Click Other practice modes… instead. The document “RR Tools – Practice Selection” must open. Use the arrow beside its Practice button: Practice All Flashcards must show every selected card (including cards not yet due); Practice Without Recording Answer Choices must not append a repetition to the cards' history.
 - Repeat from the Rem context menu and the document's … dropdown. The entry is directly in the dropdown; the plugin API does not expose the built-in Flashcards submenu. Select a parent but not its card-bearing child: the child must not be added. Select that child explicitly to include it.
 - Include forward-only, backward-only, two-way, cloze, and disabled cards. Verify directions and native card presentation in the queue.

@@ -1,3 +1,9 @@
+# RR Tools 0.4.13 due counts in the practice popup
+
+The popup shows how many of the captured cards are due now, new, and not due yet, from each card's repetitionHistory and nextRepetitionTime (public SDK Card fields). New means no history or a last repetition with the RESET score; due means nextRepetitionTime at or before opening the command; each card is counted once. When nothing is due or new, the popup points to Practice All Flashcards. Unit tests cover the classification, deduplication and both popup states; the built popup renders the counts in sandbox and native browser checks. Not verified live: agreement with RemNote's own due counts (e.g. time-zone day boundaries) in the user's client.
+
+---
+
 # RR Tools 0.4.12 reference cleanup
 
 After practice, the selected Rems kept a reference count of 1 from the practice document. RR Tools now listens to the SDK's queue.enter/queue.exit events: two seconds after a queue closes it replaces the list's references with plain text; a queue that reopens within that delay, or a new practice run, cancels the pending clear. On activation, leftovers are cleared unless RemNote is currently on the queue page. Tests cover the delayed clear, cancellation by re-entry and by a new run, the no-document no-op and listener registration. Not verified live: the exact timing of RemNote's queue events in the user's client.

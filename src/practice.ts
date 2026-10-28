@@ -7,35 +7,45 @@ export const PRACTICE_CONNECT = 'rr-tools/practice/connect';
 export const PRACTICE_CONNECTED = 'rr-tools/practice/connected';
 export const PRACTICE_START = 'rr-tools/practice/start';
 export const PRACTICE_STARTED = 'rr-tools/practice/started';
+/** due: scheduled for now or earlier. fresh: never practiced or reset (RemNote's "new" cards). later: scheduled in the future. */
+export type PracticeSchedule = { due: number; fresh: number; later: number };
 /** remIds: selected Rems that contribute at least one enabled card; these are what RemNote's queue receives. */
-export type PracticeSelection = { selected: number; skipped: number; cardIds: string[]; remIds: string[]; errors: string[] };
+export type PracticeSelection = { selected: number; skipped: number; cardIds: string[]; remIds: string[]; errors: string[]; schedule: PracticeSchedule };
+type ScheduledCard = { nextRepetitionTime?: number; repetitionHistory?: { score: number }[] };
+const RESET_SCORE = 3; // QueueInteractionScore.RESET
+
+export function scheduleOf(card: ScheduledCard, now: number): keyof PracticeSchedule {
+  const history = card.repetitionHistory ?? [];
+  if (!history.length || history[history.length - 1].score === RESET_SCORE) return 'fresh';
+  return card.nextRepetitionTime === undefined || card.nextRepetitionTime <= now ? 'due' : 'later';
+}
 export type PracticeContext = PracticeSelection & { jobId: string };
 
 /** Read only the explicitly selected Rems. Never gather a document or subtree queue. */
-export async function collectSelectedCards(plugin: Pick<ReactRNPlugin, 'rem'>, ids: string[]): Promise<PracticeSelection> {
+export async function collectSelectedCards(plugin: Pick<ReactRNPlugin, 'rem'>, ids: string[], now = Date.now()): Promise<PracticeSelection> {
   const remIds = selectedIds(ids);
-  const result: PracticeSelection = { selected: remIds.length, skipped: 0, cardIds: [], remIds: [], errors: [] };
-  const cardIds = new Set<string>();
+  const result: PracticeSelection = { selected: remIds.length, skipped: 0, cardIds: [], remIds: [], errors: [], schedule: { due: 0, fresh: 0, later: 0 } };
+  const cards = new Map<string, ScheduledCard>();
   for (const id of remIds) {
     try {
       const rem = await plugin.rem.findOne(id);
       if (!rem) throw new Error('RemNote returned no Rem for this ID.');
       if (!await rem.getEnablePractice()) { result.skipped++; continue; }
       const direction = await rem.getPracticeDirection();
-      const cards = await rem.getCards();
-      const eligible: string[] = [];
-      for (const card of cards) {
+      const eligible: [string, ScheduledCard][] = [];
+      for (const card of await rem.getCards()) {
         if (!card._id || card.remId !== id) throw new Error('RemNote returned a card without a valid ID or belonging to another Rem.');
         if (card.type === 'forward' && direction !== 'forward' && direction !== 'both') continue;
         if (card.type === 'backward' && direction !== 'backward' && direction !== 'both') continue;
-        eligible.push(card._id);
+        eligible.push([card._id, card]);
       }
       if (!eligible.length) { result.skipped++; continue; }
-      eligible.forEach(cardId => cardIds.add(cardId));
+      eligible.forEach(([cardId, card]) => cards.set(cardId, card));
       result.remIds.push(id);
     } catch (error) { result.errors.push(`Rem ${id}: ${errorMessage(error)}`); }
   }
-  result.cardIds = [...cardIds];
+  result.cardIds = [...cards.keys()];
+  for (const card of cards.values()) result.schedule[scheduleOf(card, now)]++;
   return result;
 }
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ReactRNPlugin } from '@remnote/plugin-sdk';
-import { collectSelectedCards, connectPractice, createPracticeService, PRACTICE_CONNECT, PRACTICE_CONNECTED, PRACTICE_START } from './practice';
+import { collectSelectedCards, scheduleOf, connectPractice, createPracticeService, PRACTICE_CONNECT, PRACTICE_CONNECTED, PRACTICE_START } from './practice';
 
 function rem(id: string, direction = 'both', enabled = true) {
   return { getEnablePractice: vi.fn(async () => enabled), getPracticeDirection: vi.fn(async () => direction),
@@ -29,18 +29,35 @@ it('collects only explicit selections, deduplicates, and respects enabled direct
   const a = rem('a'), b = rem('b', 'backward'), other = rem('other');
   const { typed, plugin } = setup({ a, b, other });
   expect(await collectSelectedCards(typed, ['a', 'b', 'a'])).toEqual({
-    selected: 2, skipped: 0, cardIds: ['a-f', 'a-b', 'b-b'], remIds: ['a', 'b'], errors: [],
+    selected: 2, skipped: 0, cardIds: ['a-f', 'a-b', 'b-b'], remIds: ['a', 'b'], errors: [], schedule: { due: 0, fresh: 3, later: 0 },
   });
   expect(plugin.rem.findOne.mock.calls).toEqual([['a'], ['b']]);
   expect(a.getDescendants).not.toHaveBeenCalled();
   expect(other.getCards).not.toHaveBeenCalled();
+});
+it('counts due, new and not-yet-due cards once each, treating reset cards as new', async () => {
+  const now = 1_000_000;
+  const seen = [{ score: 1 }];
+  const mixed = { ...rem('m'), getCards: async () => [
+    { _id: 'due', remId: 'm', type: 'forward', repetitionHistory: seen, nextRepetitionTime: now - 1 },
+    { _id: 'due-now', remId: 'm', type: 'backward', repetitionHistory: seen, nextRepetitionTime: now },
+    { _id: 'later', remId: 'm', type: { clozeId: '1' }, repetitionHistory: seen, nextRepetitionTime: now + 1 },
+    { _id: 'new', remId: 'm', type: { clozeId: '2' } },
+    { _id: 'reset', remId: 'm', type: { clozeId: '3' }, repetitionHistory: [{ score: 1 }, { score: 3 }], nextRepetitionTime: now + 9e9 },
+    { _id: 'due', remId: 'm', type: 'forward', repetitionHistory: seen, nextRepetitionTime: now - 1 },
+  ] };
+  const { typed } = setup({ m: mixed });
+  const result = await collectSelectedCards(typed, ['m'], now);
+  expect(result.cardIds).toEqual(['due', 'due-now', 'later', 'new', 'reset']);
+  expect(result.schedule).toEqual({ due: 2, fresh: 2, later: 1 });
+  expect(scheduleOf({ repetitionHistory: seen }, now)).toBe('due');
 });
 it('skips disabled Rems, ordinary notes and inactive directions but includes cloze cards', async () => {
   const note = rem('note'); note.getCards.mockResolvedValue([]);
   const cloze = { ...rem('cloze', 'none'), getCards: async () => [{ _id: 'c1', remId: 'cloze', type: { clozeId: '1' } }] };
   const disabled = rem('disabled', 'both', false);
   const { typed } = setup({ note, cloze, disabled, none: rem('none', 'none') });
-  expect(await collectSelectedCards(typed, ['disabled', 'note', 'none', 'cloze'])).toEqual({ selected: 4, skipped: 3, cardIds: ['c1'], remIds: ['cloze'], errors: [] });
+  expect(await collectSelectedCards(typed, ['disabled', 'note', 'none', 'cloze'])).toEqual({ selected: 4, skipped: 3, cardIds: ['c1'], remIds: ['cloze'], errors: [], schedule: { due: 0, fresh: 1, later: 0 } });
   expect(disabled.getCards).not.toHaveBeenCalled();
 });
 it('deduplicates card IDs and rejects a foreign card without leaking partial results from that Rem', async () => {
@@ -50,6 +67,7 @@ it('deduplicates card IDs and rejects a foreign card without leaking partial res
   const result = await collectSelectedCards(typed, ['a', 'b']);
   expect(result.cardIds).toEqual(['a-f']);
   expect(result.remIds).toEqual(['a']);
+  expect(result.schedule).toEqual({ due: 0, fresh: 1, later: 0 });
   expect(result.errors[0]).toContain('Rem b:');
   expect(result.errors[0]).toContain('another Rem');
 });

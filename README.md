@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.13:** The practice popup shows how many selected cards are due now, new, and not due yet.
 - **0.4.12:** Practice references are removed after the session, so no reference count stays on your Rems.
 - **0.4.11:** **Practice Selected Flashcards** runs in RemNote's own flashcard screen instead of a popup.
 - **0.4.10:** Popup practice for plugins running in restricted mode (replaced in 0.4.11).
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.5:** **Header Row** and **Column Row** options for pasted tables.
 - **0.4.4:** Colored table paste with a preview.
 - **0.4.3:** More reliable connection between the paste box and the destination Rem.
-- **0.4.2:** Formatted text appears directly in the paste box; one click on **Paste** inserts it.
 
 ## Getting started
 
@@ -67,8 +67,8 @@ Multiple tables, surrounding text, empty cells, and merged cells are supported, 
 
 1. Select the Rems whose flashcards you want to practice.
 2. Run **Practice Selected Flashcards**.
-3. Check the Rem and flashcard counts, then choose:
-   - **Start practice** opens RemNote's flashcard screen with the selected cards that are due (spaced repetition).
+3. Check the counts: how many cards are **due now**, **new** (never practiced), and **not due yet**. Then choose:
+   - **Start practice** opens RemNote's flashcard screen with the due and new cards (spaced repetition; RemNote's daily limit for new cards applies).
    - **Other practice modes…** opens the practice document. Click the arrow beside its **Practice** button for **Practice All Flashcards**, **in Order**, or **Without Recording Answer Choices**.
 4. Practice as usual and leave with RemNote's normal queue controls.
 

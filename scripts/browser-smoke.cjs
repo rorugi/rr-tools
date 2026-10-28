@@ -42,7 +42,7 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/connect') {
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/connected',connectionId:data.args.message.connectionId,
-       selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job'}}});
+       selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job',schedule:{due:1,fresh:0,later:1}}}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/start') {
      window.practiceStart=data.args.message;
@@ -78,6 +78,7 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    assert.ok(await popup.getByRole('button',{name:'Other practice modes…',exact:true}).isVisible());
    assert.ok((await popup.locator('main').textContent()).includes("RemNote's flashcard screen"));
    assert.equal(await popup.getByRole('combobox').count(),0);
+   assert.equal((await popup.getByLabel('Card schedule').textContent()).trim(),'1 due now · 0 new · 1 not due yet');
    const close=popup.getByRole('button',{name:'Close',exact:true});
    const box=await close.boundingBox();
    assert.ok(box.y+box.height<520,'Close remains within the bounded popup');

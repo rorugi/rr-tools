@@ -13,7 +13,7 @@ const button = (name: string) => buttons().find(b => b.textContent === name)!;
 beforeEach(() => {
   vi.clearAllMocks();
   root = document.createElement('div'); document.body.appendChild(root);
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f', 'b-b'], remIds: ['a', 'b'], errors: [], jobId: 'job' }), cancel: state.cancel });
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f', 'b-b'], remIds: ['a', 'b'], errors: [], jobId: 'job', schedule: { due: 1, fresh: 0, later: 1 } }), cancel: state.cancel });
   state.start.mockResolvedValue(undefined);
 });
 afterEach(() => { ReactDOM.unmountComponentAtNode(root); root.remove(); });
@@ -21,6 +21,8 @@ it('starts the native flashcard screen once for the captured job and never embed
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
   expect(buttons().map(b => b.textContent)).toEqual(['Start practice', 'Other practice modes…', 'Close']);
   expect(root.textContent).toContain("RemNote's flashcard screen");
+  expect(root.querySelector('[aria-label="Card schedule"]')!.textContent).toBe('1 due now · 0 new · 1 not due yet');
+  expect(root.textContent).not.toContain('None of the selected cards is due');
   const start = button('Start practice');
   await act(async () => { Simulate.click(start); Simulate.click(start); });
   expect(state.start).toHaveBeenCalledExactlyOnceWith(state.plugin, 'job', 'queue');
@@ -28,6 +30,12 @@ it('starts the native flashcard screen once for the captured job and never embed
   expect(buttons().map(b => b.textContent)).toEqual(['Close']);
   await act(async () => { ReactDOM.unmountComponentAtNode(root); });
   expect(state.cancel).toHaveBeenCalledTimes(1);
+});
+it('says when nothing is due and points to Practice All', async () => {
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 1, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: [], jobId: 'job', schedule: { due: 0, fresh: 0, later: 1 } }), cancel: state.cancel });
+  await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
+  expect(root.textContent).toContain('0 due now · 0 new · 1 not due yet');
+  expect(root.textContent).toContain('None of the selected cards is due');
 });
 it('offers the other native modes through the practice document', async () => {
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
