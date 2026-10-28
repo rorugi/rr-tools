@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import type { ReactRNPlugin } from '@remnote/plugin-sdk';
-import { clearPracticeSelection, createPracticeCleanup, openNativePractice, preparePracticeDocument, PRACTICE_DOC_KEY, PRACTICE_DOC_TITLE, PRACTICE_LIST_KEY } from './native-practice';
+import { clearPracticeSelection, createPracticeCleanup, openNativePractice, preparePracticeDocument, PRACTICE_DOC_KEY, PRACTICE_DOC_TITLE, PRACTICE_LIST_KEY, PRACTICE_SETS_KEY, PRACTICE_SETS_TITLE, savePracticeSet } from './native-practice';
 
 type FakeRem = { _id: string; parent: string | null; text: unknown[]; isDocument?: boolean;
   setText: ReturnType<typeof vi.fn>; setIsDocument: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn> };
@@ -123,4 +123,40 @@ it('clearNow removes leftovers once and is a no-op without a practice document',
   await expect(cleanup.clearNow()).resolves.toBe(true);
   await expect(cleanup.clearNow()).resolves.toBe(false);
   expect(refs(rems.get(synced.get(PRACTICE_LIST_KEY) as string)!.text)).toEqual([]);
+});
+
+it('saves a named practice set as a document with one reference per selected Rem, grouped under one parent', async () => {
+  const { typed, rems, synced } = setup();
+  const first = await savePracticeSet(typed, '  Exam   chapter 3 ', ['a', 'b']);
+  expect(first.name).toBe('Exam chapter 3');
+  const parent = rems.get(synced.get(PRACTICE_SETS_KEY) as string)!;
+  expect(parent).toMatchObject({ text: [PRACTICE_SETS_TITLE], isDocument: true });
+  const set = rems.get(first._id)!;
+  expect(set).toMatchObject({ parent: parent._id, text: ['Exam chapter 3'], isDocument: true });
+  const entries = [...rems.values()].filter(rem => rem.parent === set._id);
+  expect(entries.map(rem => rem.text)).toEqual([[{ i: 'q', _id: 'a' }], [{ i: 'q', _id: 'b' }]]);
+  expect(entries.map(rem => rem.setParent.mock.calls[0])).toEqual([[set._id, 0], [set._id, 1]]);
+  const second = await savePracticeSet(typed, 'Hard cards', ['c']);
+  expect(rems.get(second._id)!.parent).toBe(parent._id);
+  expect([...rems.values()].filter(rem => rem.text[0] === PRACTICE_SETS_TITLE)).toHaveLength(1);
+  // Saving a set never touches the temporary practice document.
+  expect(synced.has(PRACTICE_DOC_KEY)).toBe(false);
+});
+it('refuses empty or overlong names and invalid selections before creating anything', async () => {
+  const { typed, plugin } = setup();
+  await expect(savePracticeSet(typed, '   ', ['a'])).rejects.toThrow('Enter a name');
+  await expect(savePracticeSet(typed, 'x'.repeat(201), ['a'])).rejects.toThrow('at most 200');
+  await expect(savePracticeSet(typed, 'Set', [])).rejects.toThrow('unique');
+  await expect(savePracticeSet(typed, 'Set', ['a', 'a'])).rejects.toThrow('unique');
+  expect(plugin.rem.createRem).not.toHaveBeenCalled();
+});
+it('reports an incomplete set when a reference is not saved', async () => {
+  const { typed, plugin, make } = setup();
+  let count = 0;
+  plugin.rem.createRem.mockImplementation(async () => {
+    const rem = make(`r-${++count}`);
+    if (count === 4) rem.setText.mockImplementation(async () => { rem.text = ['lost']; });
+    return rem;
+  });
+  await expect(savePracticeSet(typed, 'Set', ['a', 'b'])).rejects.toThrow('entry 2 of “Set”');
 });

@@ -101,3 +101,47 @@ export function createPracticeCleanup(plugin: Pick<ReactRNPlugin, 'rem' | 'stora
     clearNow: () => { cancel(); return clearPracticeSelection(plugin); },
   };
 }
+
+export const PRACTICE_SETS_KEY = 'practiceSetsParent';
+export const PRACTICE_SETS_TITLE = 'RR Tools – Practice Sets';
+export const PRACTICE_SET_NAME_MAX = 200;
+
+/**
+ * Saves the selection as a permanent, ordinary RemNote document: one child per selected Rem, each
+ * holding only a reference to it. The set is practiced with RemNote's own Practice button, so every
+ * native mode is available. Sets are grouped under one reusable parent document. The references stay
+ * (the selected Rems show RemNote's backlink count) until the user deletes the set.
+ */
+export async function savePracticeSet(plugin: Pick<ReactRNPlugin, 'rem' | 'storage'>, name: string, remIds: string[]): Promise<{ _id: string; name: string }> {
+  const title = name.replace(/\s+/g, ' ').trim();
+  if (!title) throw new Error('Enter a name for the practice set.');
+  if (title.length > PRACTICE_SET_NAME_MAX) throw new Error(`Use at most ${PRACTICE_SET_NAME_MAX} characters for the name.`);
+  const ids = selectedIds(remIds);
+  if (!ids.length || ids.length !== remIds.length) throw new Error('No valid, unique selected Rems were captured.');
+  let parent = await stored(plugin as Host, PRACTICE_SETS_KEY);
+  if (!parent) {
+    parent = await created(plugin as Host, PRACTICE_SETS_KEY);
+    await parent.setText([PRACTICE_SETS_TITLE]);
+    await parent.setIsDocument(true);
+  }
+  const set = await plugin.rem.createRem();
+  if (!set?._id) throw new Error('RemNote did not create the practice set document.');
+  await set.setParent(parent._id);
+  await set.setText([title]);
+  await set.setIsDocument(true);
+  const children: string[] = [];
+  for (const [i, id] of ids.entries()) {
+    const child = await plugin.rem.createRem();
+    if (!child?._id) throw new Error(`RemNote did not create entry ${i + 1} of “${title}”. The set is incomplete; delete it and save again.`);
+    await child.setParent(set._id, i);
+    await child.setText([{ i: 'q', _id: id }]);
+    children.push(child._id);
+  }
+  // Read back: an incomplete set would silently practice fewer cards.
+  for (const [i, childId] of children.entries()) {
+    const text = (await plugin.rem.findOne(childId))?.text ?? [];
+    const ref = text.find(part => typeof part === 'object' && part && part.i === 'q') as { _id?: string } | undefined;
+    if (ref?._id !== ids[i]) throw new Error(`RemNote did not save entry ${i + 1} of “${title}”. The set is incomplete; delete it and save again.`);
+  }
+  return { _id: set._id, name: title };
+}

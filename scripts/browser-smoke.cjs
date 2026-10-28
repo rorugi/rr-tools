@@ -44,6 +44,10 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/connected',connectionId:data.args.message.connectionId,
        selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job',schedule:{due:1,fresh:0,later:1}}}});
    }
+   if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/save') {
+     window.practiceSave=data.args.message;
+     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/saved',jobId:'test-job',name:data.args.message.name}});
+   }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/start') {
      window.practiceStart=data.args.message;
      // The actual index/navigation adapter is exercised by service/host-contract tests.
@@ -82,7 +86,14 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    const close=popup.getByRole('button',{name:'Close',exact:true});
    const box=await close.boundingBox();
    assert.ok(box.y+box.height<520,'Close remains within the bounded popup');
+   await popup.getByRole('button',{name:'Save as practice set…',exact:true}).click();
+   const name=popup.getByLabel('Practice set name');
+   await name.fill('Exam chapter 3');
    await page.screenshot({path:process.env.RR_SCREENSHOT || 'browser-test.png'});
+   await name.press('Enter');
+   await popup.getByText('Saved “Exam chapter 3” in “RR Tools – Practice Sets”',{exact:false}).waitFor();
+   assert.deepEqual(await page.evaluate(()=>window.practiceSave),{type:'rr-tools/practice/save',jobId:'test-job',name:'Exam chapter 3'});
+   assert.ok(await popup.getByRole('button',{name:'Open practice set',exact:true}).isVisible());
    await start.click();
    await page.waitForFunction(()=>!!window.practiceStart);
    assert.deepEqual(await page.evaluate(()=>window.practiceStart),{type:'rr-tools/practice/start',jobId:'test-job',target:'queue'});

@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.14:** **Save as practice set…** keeps a selection as a named RemNote document you can practice anytime.
 - **0.4.13:** The practice popup shows how many selected cards are due now, new, and not due yet.
 - **0.4.12:** Practice references are removed after the session, so no reference count stays on your Rems.
 - **0.4.11:** **Practice Selected Flashcards** runs in RemNote's own flashcard screen instead of a popup.
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.7:** New **Practice Selected Flashcards** command.
 - **0.4.5:** **Header Row** and **Column Row** options for pasted tables.
 - **0.4.4:** Colored table paste with a preview.
-- **0.4.3:** More reliable connection between the paste box and the destination Rem.
 
 ## Getting started
 
@@ -80,6 +80,14 @@ RemNote lets plugins open the flashcard screen for a document, not for a list of
 
 - The document is created on first use and reused afterwards. You can move it anywhere, but don't add other content under it, since that would be practiced too. If you delete it, the next run creates a new one.
 - While you practice, the selected Rems show a reference count. It disappears a few seconds after you leave the flashcard screen, when RR Tools clears the list. Run the command again for another session.
+
+### Practice sets
+
+To keep a selection, click **Save as practice set…** in the popup, enter a name, and click **Save**. RR Tools creates a normal RemNote document with that name inside **RR Tools – Practice Sets**, with one link to each selected Rem.
+
+- Practice the set anytime with the document's **Practice** button, including Practice All, in Order, and Without Recording. It also appears in Flashcard Home with its due count.
+- The linked Rems show a reference count while the set exists. Delete the set document to remove it.
+- **Open practice set** in the popup jumps to the new document.
 
 ## Change flashcard directions
 

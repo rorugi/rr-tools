@@ -116,7 +116,7 @@ function Paste() {
         <button type="button" className="rn-button rr-primary" aria-describedby={setupError || error || converted.error ? 'rr-paste-error' : undefined} disabled={busy || attempted || !context?.jobId} onClick={paste}>{busy ? 'Pasting…' : 'Paste'}</button>
         <button type="button" className="rn-button" disabled={busy} onClick={() => plugin.widget.closePopup(true)}>{attempted ? 'Close' : 'Cancel'}</button>
       </div>
-      <div className="rr-version">RR Tools 0.4.13</div>
+      <div className="rr-version">RR Tools 0.4.14</div>
     </footer>
   </main>;
 }

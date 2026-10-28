@@ -1,3 +1,9 @@
+# RR Tools 0.4.14 practice sets
+
+Save as practice set… creates a permanent RemNote document named by the user (whitespace normalized, 1–200 characters) under a reusable parent “RR Tools – Practice Sets” (ID in synced plugin storage, recreated if deleted). Each selected Rem gets one child containing only a reference to it, in selection order; every reference is read back after writing. One set per popup selection: repeated clicks reuse the same save, a failed save can be retried. The KB is checked before writing. Open practice set opens the saved document. The temporary practice document and its cleanup are unaffected. Unit tests cover document structure, parent reuse, name validation, incomplete-write detection, duplicate-click protection, KB change and the popup flow; the built popup passes the save flow in sandbox and native browser checks. Not verified live: the saved document's native queue in the user's client.
+
+---
+
 # RR Tools 0.4.13 due counts in the practice popup
 
 The popup shows how many of the captured cards are due now, new, and not due yet, from each card's repetitionHistory and nextRepetitionTime (public SDK Card fields). New means no history or a last repetition with the RESET score; due means nextRepetitionTime at or before opening the command; each card is counted once. When nothing is due or new, the popup points to Practice All Flashcards. Unit tests cover the classification, deduplication and both popup states; the built popup renders the counts in sandbox and native browser checks. Not verified live: agreement with RemNote's own due counts (e.g. time-zone day boundaries) in the user's client.

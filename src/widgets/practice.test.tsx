@@ -3,9 +3,9 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { act, Simulate } from 'react-dom/test-utils';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const state = vi.hoisted(() => ({ plugin: { widget: { closePopup: vi.fn() } }, connect: vi.fn(), start: vi.fn(), cancel: vi.fn(), queue: vi.fn() }));
+const state = vi.hoisted(() => ({ plugin: { widget: { closePopup: vi.fn() } }, connect: vi.fn(), start: vi.fn(), save: vi.fn(), cancel: vi.fn(), queue: vi.fn() }));
 vi.mock('@remnote/plugin-sdk', () => ({ renderWidget: vi.fn(), usePlugin: () => state.plugin, Queue: (props: unknown) => { state.queue(props); return null; } }));
-vi.mock('../practice', () => ({ connectPractice: state.connect, startPractice: state.start }));
+vi.mock('../practice', () => ({ connectPractice: state.connect, startPractice: state.start, savePractice: state.save }));
 import { PracticeSelected } from './practice';
 let root: HTMLDivElement;
 const buttons = () => Array.from(root.querySelectorAll('button'));
@@ -19,7 +19,7 @@ beforeEach(() => {
 afterEach(() => { ReactDOM.unmountComponentAtNode(root); root.remove(); });
 it('starts the native flashcard screen once for the captured job and never embeds a queue', async () => {
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
-  expect(buttons().map(b => b.textContent)).toEqual(['Start practice', 'Other practice modes…', 'Close']);
+  expect(buttons().map(b => b.textContent)).toEqual(['Save as practice set…', 'Start practice', 'Other practice modes…', 'Close']);
   expect(root.textContent).toContain("RemNote's flashcard screen");
   expect(root.querySelector('[aria-label="Card schedule"]')!.textContent).toBe('1 due now · 0 new · 1 not due yet');
   expect(root.textContent).not.toContain('None of the selected cards is due');
@@ -44,6 +44,31 @@ it('offers the other native modes through the practice document', async () => {
   expect(state.start).toHaveBeenCalledExactlyOnceWith(state.plugin, 'job', 'modes');
   expect(state.queue).not.toHaveBeenCalled();
 });
+it('saves the selection as a named practice set and opens it', async () => {
+  state.save.mockResolvedValue('Exam chapter 3');
+  await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
+  act(() => { Simulate.click(button('Save as practice set…')); });
+  const input = root.querySelector<HTMLInputElement>('input[aria-label="Practice set name"]')!;
+  expect(input.value).toMatch(/^Practice set \d{4}-\d{2}-\d{2}$/);
+  act(() => { Simulate.change(input, { target: { value: '' } as never }); });
+  expect(button('Save').disabled).toBe(true);
+  act(() => { Simulate.change(input, { target: { value: 'Exam chapter 3' } as never }); });
+  await act(async () => { Simulate.click(button('Save')); Simulate.click(button('Save')); });
+  expect(state.save).toHaveBeenCalledExactlyOnceWith(state.plugin, 'job', 'Exam chapter 3');
+  expect(root.textContent).toContain('Saved “Exam chapter 3” in “RR Tools – Practice Sets”');
+  await act(async () => { Simulate.click(button('Open practice set')); });
+  expect(state.start).toHaveBeenCalledExactlyOnceWith(state.plugin, 'job', 'set');
+});
+it('keeps the name and shows save errors so the user can retry', async () => {
+  state.save.mockRejectedValueOnce(new Error('RemNote did not create the practice set document.')).mockResolvedValueOnce('Retry');
+  await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
+  act(() => { Simulate.click(button('Save as practice set…')); });
+  await act(async () => { Simulate.click(button('Save')); });
+  expect(root.querySelector('[role="alert"]')!.textContent).toContain('did not create');
+  await act(async () => { Simulate.click(button('Save')); });
+  expect(state.save).toHaveBeenCalledTimes(2);
+  expect(root.textContent).toContain('Saved “Retry”');
+});
 it('blocks empty selections and keeps Close available', async () => {
   state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 2, cardIds: [], remIds: [], errors: [], jobId: 'job' }), cancel: state.cancel });
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
@@ -58,7 +83,7 @@ it('shows partial errors as text and requires an explicit start', async () => {
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
   expect(root.querySelector('[role="alert"]')!.textContent).toContain('Rem b: <script>denied</script>');
   expect(root.querySelector('script')).toBeNull();
-  expect(buttons()[0].textContent).toBe('Practice available flashcards');
+  expect(button('Practice available flashcards')).toBeTruthy();
   expect(state.start).not.toHaveBeenCalled();
 });
 it('keeps launch errors visible without closing the popup', async () => {

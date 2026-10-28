@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ReactRNPlugin } from '@remnote/plugin-sdk';
-import { collectSelectedCards, scheduleOf, connectPractice, createPracticeService, PRACTICE_CONNECT, PRACTICE_CONNECTED, PRACTICE_START } from './practice';
+import { collectSelectedCards, scheduleOf, connectPractice, createPracticeService, PRACTICE_CONNECT, PRACTICE_CONNECTED, PRACTICE_SAVE, PRACTICE_SAVED, PRACTICE_START } from './practice';
 
 function rem(id: string, direction = 'both', enabled = true) {
   return { getEnablePractice: vi.fn(async () => enabled), getPracticeDirection: vi.fn(async () => direction),
@@ -178,6 +178,47 @@ it('opens the practice document for other modes and tells the user where to choo
   expect(plugin.widget.closePopup).toHaveBeenCalledWith(false);
   expect(plugin.app.toast).toHaveBeenCalledWith(expect.stringContaining('arrow beside Practice'));
   expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ error: undefined }));
+});
+it('saves one practice set per selection, then opens it on request', async () => {
+  const rems: Record<string, unknown> = { a: rem('a'), b: rem('b', 'backward') };
+  const { typed, plugin } = setup(rems);
+  let next = 0;
+  const createRem = vi.fn(async () => {
+    const created = { _id: `r${++next}`, parent: null as string | null, text: [] as unknown[],
+      setParent: vi.fn(async (parent: string) => { created.parent = parent; }), setText: vi.fn(async (text: unknown[]) => { created.text = text; }), setIsDocument: vi.fn(async () => {}) };
+    rems[created._id] = created; return created;
+  });
+  Object.assign(plugin.rem, { createRem });
+  const service = createPracticeService(typed);
+  await service.open();
+  await service.handle({ type: PRACTICE_CONNECT, connectionId: 'one' });
+  const jobId = (plugin.messaging.broadcast.mock.calls.at(-1)![0] as { selection: { jobId: string } }).selection.jobId;
+  await service.handle({ type: PRACTICE_START, jobId, target: 'set' });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ error: 'Save the practice set first.' }));
+  const save = { type: PRACTICE_SAVE, jobId, name: 'Exam' };
+  await Promise.all([service.handle(save), service.handle(save)]);
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith({ type: PRACTICE_SAVED, jobId, name: 'Exam', error: undefined });
+  // Parent + set + two entries, created once despite the double click.
+  expect(createRem).toHaveBeenCalledTimes(4);
+  expect(plugin.widget.closePopup).not.toHaveBeenCalled();
+  await service.handle({ type: PRACTICE_START, jobId, target: 'set' });
+  expect(plugin.window.openRem).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ _id: 'r2' }));
+  expect(plugin.widget.closePopup).toHaveBeenCalledWith(false);
+  expect(plugin.window.setURL).not.toHaveBeenCalled();
+});
+it('reports save errors and allows a corrected retry', async () => {
+  const { typed, plugin } = setup();
+  const service = createPracticeService(typed);
+  await service.open();
+  await service.handle({ type: PRACTICE_CONNECT, connectionId: 'one' });
+  const jobId = (plugin.messaging.broadcast.mock.calls.at(-1)![0] as { selection: { jobId: string } }).selection.jobId;
+  await service.handle({ type: PRACTICE_SAVE, jobId, name: ' ' });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ type: PRACTICE_SAVED, error: expect.stringContaining('Enter a name') }));
+  plugin.kb.getCurrentKnowledgeBaseData.mockResolvedValue({ _id: 'other-kb', name: 'Other' });
+  await service.handle({ type: PRACTICE_SAVE, jobId, name: 'Exam' });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ error: expect.stringContaining('knowledge base changed') }));
+  await service.handle({ type: PRACTICE_SAVE, jobId: 'expired', name: 'Exam' });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ error: expect.stringContaining('expired') }));
 });
 it('client correlates replies and removes its listener without needing widget context', async () => {
   let listener = (_event: unknown) => {};
