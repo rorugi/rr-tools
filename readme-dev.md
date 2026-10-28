@@ -47,7 +47,7 @@ The build validates `public/manifest.json` (including the `KnowledgeBaseInfo / R
 
 RemNote has no public API that starts the flashcard screen with an arbitrary card list, and plugins run in restricted mode, so the host's filtered-queue storage is out of reach. RR Tools keeps one document, **RR Tools – Practice Selection** (its ID is in synced plugin storage), with one **Selected Rems:** child whose text is replaced by references to the selected Rems. A document's queue gathers the Rems it references without their descendants ([RemNote help](https://help.remnote.com/en/articles/8892109-how-does-remnote-decide-what-flashcards-are-part-of-a-document), rule 6). **Start practice** opens `/flashcards/<document>` ([documented route](https://help.remnote.com/en/articles/11553351-using-quick-navigation-routes)) and falls back to opening the document, never the global queue. Two seconds after `queue.exit` (cancelled by `queue.enter` or a new run), the references are replaced by plain text so no reference count remains.
 
-Practice sets (**Save as practice set…**) are permanent documents under **RR Tools – Practice Sets** with one reference child per selected Rem; they are never cleared by the plugin.
+Practice sets (**Save as practice set…**) are permanent documents under **RR Tools – Practice Sets** with one reference child per selected Rem; they are never cleared by the plugin. **Add to practice set…** appends reference children for selected Rems a set does not reference yet.
 
 ## Reporting issues
 

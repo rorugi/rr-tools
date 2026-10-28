@@ -106,21 +106,67 @@ export const PRACTICE_SETS_KEY = 'practiceSetsParent';
 export const PRACTICE_SETS_TITLE = 'RR Tools – Practice Sets';
 export const PRACTICE_SET_NAME_MAX = 200;
 
+export type PracticeSetInfo = { _id: string; name: string };
+export type PracticeSetResult = PracticeSetInfo & { added: number; already: number };
+type SetHost = Pick<ReactRNPlugin, 'rem' | 'storage' | 'richText'>;
+
+const references = (text: RichTextInterface | undefined) =>
+  (text ?? []).flatMap(part => typeof part === 'object' && part && part.i === 'q' ? [part._id] : []);
+
+function validName(name: string) {
+  const title = name.replace(/\s+/g, ' ').trim();
+  if (!title) throw new Error('Enter a name for the practice set.');
+  if (title.length > PRACTICE_SET_NAME_MAX) throw new Error(`Use at most ${PRACTICE_SET_NAME_MAX} characters for the name.`);
+  return title;
+}
+function validIds(remIds: string[]) {
+  const ids = selectedIds(remIds);
+  if (!ids.length || ids.length !== remIds.length) throw new Error('No valid, unique selected Rems were captured.');
+  return ids;
+}
+
+/** Appends one reference child per Rem at the end of the set and reads every reference back. */
+async function appendReferences(plugin: SetHost, set: RemObject, title: string, ids: string[], start: number) {
+  const incomplete = (n: number) => `RemNote did not save entry ${n} of “${title}”. The set is incomplete; check it before trying again.`;
+  const children: string[] = [];
+  for (const [i, id] of ids.entries()) {
+    const child = await plugin.rem.createRem();
+    if (!child?._id) throw new Error(incomplete(start + i + 1));
+    await child.setParent(set._id, start + i);
+    await child.setText([{ i: 'q', _id: id }]);
+    children.push(child._id);
+  }
+  // Read back: an incomplete set would silently practice fewer cards.
+  for (const [i, childId] of children.entries()) {
+    if (references((await plugin.rem.findOne(childId))?.text)[0] !== ids[i]) throw new Error(incomplete(start + i + 1));
+  }
+}
+
+/** The documents directly under “RR Tools – Practice Sets”, in document order. Empty when there is no parent yet. */
+export async function listPracticeSets(plugin: SetHost): Promise<PracticeSetInfo[]> {
+  const parent = await stored(plugin as unknown as Host, PRACTICE_SETS_KEY);
+  if (!parent) return [];
+  const sets: PracticeSetInfo[] = [];
+  for (const rem of await parent.getChildrenRem()) {
+    if (!await rem.isDocument()) continue;
+    const name = (await plugin.richText.toString(rem.text ?? [])).trim();
+    sets.push({ _id: rem._id, name: name || 'Untitled practice set' });
+  }
+  return sets;
+}
+
 /**
  * Saves the selection as a permanent, ordinary RemNote document: one child per selected Rem, each
  * holding only a reference to it. The set is practiced with RemNote's own Practice button, so every
  * native mode is available. Sets are grouped under one reusable parent document. The references stay
  * (the selected Rems show RemNote's backlink count) until the user deletes the set.
  */
-export async function savePracticeSet(plugin: Pick<ReactRNPlugin, 'rem' | 'storage'>, name: string, remIds: string[]): Promise<{ _id: string; name: string }> {
-  const title = name.replace(/\s+/g, ' ').trim();
-  if (!title) throw new Error('Enter a name for the practice set.');
-  if (title.length > PRACTICE_SET_NAME_MAX) throw new Error(`Use at most ${PRACTICE_SET_NAME_MAX} characters for the name.`);
-  const ids = selectedIds(remIds);
-  if (!ids.length || ids.length !== remIds.length) throw new Error('No valid, unique selected Rems were captured.');
-  let parent = await stored(plugin as Host, PRACTICE_SETS_KEY);
+export async function savePracticeSet(plugin: SetHost, name: string, remIds: string[]): Promise<PracticeSetResult> {
+  const title = validName(name);
+  const ids = validIds(remIds);
+  let parent = await stored(plugin as unknown as Host, PRACTICE_SETS_KEY);
   if (!parent) {
-    parent = await created(plugin as Host, PRACTICE_SETS_KEY);
+    parent = await created(plugin as unknown as Host, PRACTICE_SETS_KEY);
     await parent.setText([PRACTICE_SETS_TITLE]);
     await parent.setIsDocument(true);
   }
@@ -129,19 +175,20 @@ export async function savePracticeSet(plugin: Pick<ReactRNPlugin, 'rem' | 'stora
   await set.setParent(parent._id);
   await set.setText([title]);
   await set.setIsDocument(true);
-  const children: string[] = [];
-  for (const [i, id] of ids.entries()) {
-    const child = await plugin.rem.createRem();
-    if (!child?._id) throw new Error(`RemNote did not create entry ${i + 1} of “${title}”. The set is incomplete; delete it and save again.`);
-    await child.setParent(set._id, i);
-    await child.setText([{ i: 'q', _id: id }]);
-    children.push(child._id);
-  }
-  // Read back: an incomplete set would silently practice fewer cards.
-  for (const [i, childId] of children.entries()) {
-    const text = (await plugin.rem.findOne(childId))?.text ?? [];
-    const ref = text.find(part => typeof part === 'object' && part && part.i === 'q') as { _id?: string } | undefined;
-    if (ref?._id !== ids[i]) throw new Error(`RemNote did not save entry ${i + 1} of “${title}”. The set is incomplete; delete it and save again.`);
-  }
-  return { _id: set._id, name: title };
+  await appendReferences(plugin, set, title, ids, 0);
+  return { _id: set._id, name: title, added: ids.length, already: 0 };
+}
+
+/** Appends the selected Rems that the set does not reference yet. Only sets under the practice-sets parent are accepted. */
+export async function addToPracticeSet(plugin: SetHost, setId: string, remIds: string[]): Promise<PracticeSetResult> {
+  const ids = validIds(remIds);
+  const parent = await stored(plugin as unknown as Host, PRACTICE_SETS_KEY);
+  const set = typeof setId === 'string' && setId ? await plugin.rem.findOne(setId) : undefined;
+  if (!parent || !set || set.parent !== parent._id) throw new Error('This practice set no longer exists. Reopen Practice Selected Flashcards to see the current sets.');
+  const name = (await plugin.richText.toString(set.text ?? [])).trim() || 'Untitled practice set';
+  const children = await set.getChildrenRem();
+  const existing = new Set(children.flatMap(child => references(child.text)));
+  const missing = ids.filter(id => !existing.has(id));
+  await appendReferences(plugin, set, name, missing, children.length);
+  return { _id: set._id, name, added: missing.length, already: ids.length - missing.length };
 }

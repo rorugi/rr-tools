@@ -1,4 +1,4 @@
-# RR Tools 0.4.14 practical test plan
+# RR Tools 0.4.15 practical test plan
 
 Run these checks yourself in scratch Rems. They are acceptance checks, not claimed live passes. Record RemNote version, OS, Word/browser version and color mode. Automated evidence is in VERIFICATION.md.
 
@@ -10,6 +10,7 @@ Practice must run in RemNote's own flashcard screen, never inside the popup. The
 - The popup must show “X due now · Y new · Z not due yet” matching the Cards table for the same cards (each card counted once). With only future cards selected, it must point to Practice All Flashcards.
 - Click Other practice modes… instead. The document “RR Tools – Practice Selection” must open. Use the arrow beside its Practice button: Practice All Flashcards must show every selected card (including cards not yet due); Practice Without Recording Answer Choices must not append a repetition to the cards' history.
 - Click Save as practice set…, keep or change the default name, and Save. A document with that name must appear under “RR Tools – Practice Sets” with one reference per selected Rem, in selection order. Its Practice button must practice exactly those cards. Double-clicking Save must create one set only. Save a second set: the same parent must be reused. Open practice set must open the new document. Empty names must be refused.
+- With no practice set, Add to practice set… must not appear. After saving one, select other Rems (including one already in the set) and reopen the popup: Add to practice set… must list the sets in document order. Adding must append only the missing Rems at the end and report how many were already in it. A Rem moved out of “RR Tools – Practice Sets” must not be offered.
 - Repeat from the Rem context menu and the document's … dropdown. The entry is directly in the dropdown; the plugin API does not expose the built-in Flashcards submenu. Select a parent but not its card-bearing child: the child must not be added. Select that child explicitly to include it.
 - Include forward-only, backward-only, two-way, cloze, and disabled cards. Verify directions and native card presentation in the queue.
 - With no selection, show guidance without opening anything. With only ordinary notes or disabled cards, show zero cards and disabled buttons, never the global queue.

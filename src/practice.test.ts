@@ -16,7 +16,7 @@ function setup(rems: Record<string, unknown> = { a: rem('a'), b: rem('b', 'backw
     rem: { findOne: vi.fn(async (id: string) => rems[id]) },
     editor: { getSelectedRem: vi.fn(async () => ({ remIds: ['a', 'b', 'a'] })) },
     window: { openWidgetInPane: vi.fn(async () => []), setURL: vi.fn(async (_url: string) => {}), getURL: vi.fn(async () => ''), openRem: vi.fn(async () => {}) },
-    storage: { getSynced: vi.fn(async () => undefined), setSynced: vi.fn(async () => {}) },
+    storage: { getSynced: vi.fn(async (_key: string): Promise<unknown> => undefined), setSynced: vi.fn(async () => {}) },
     widget: { openPopup: vi.fn(async () => {}), closePopup: vi.fn(async () => {}) },
     messaging: { broadcast: vi.fn(async (_message: unknown) => {}) },
     app: { toast: vi.fn(async (_message: string) => {}) },
@@ -197,7 +197,7 @@ it('saves one practice set per selection, then opens it on request', async () =>
   expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ error: 'Save the practice set first.' }));
   const save = { type: PRACTICE_SAVE, jobId, name: 'Exam' };
   await Promise.all([service.handle(save), service.handle(save)]);
-  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith({ type: PRACTICE_SAVED, jobId, name: 'Exam', error: undefined });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith({ type: PRACTICE_SAVED, jobId, result: { _id: 'r2', name: 'Exam', added: 2, already: 0 }, error: undefined });
   // Parent + set + two entries, created once despite the double click.
   expect(createRem).toHaveBeenCalledTimes(4);
   expect(plugin.widget.closePopup).not.toHaveBeenCalled();
@@ -205,6 +205,42 @@ it('saves one practice set per selection, then opens it on request', async () =>
   expect(plugin.window.openRem).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ _id: 'r2' }));
   expect(plugin.widget.closePopup).toHaveBeenCalledWith(false);
   expect(plugin.window.setURL).not.toHaveBeenCalled();
+});
+it('offers the existing sets and adds the selection to the chosen one', async () => {
+  const rems: Record<string, unknown> = { a: rem('a'), b: rem('b', 'backward') };
+  const { typed, plugin } = setup(rems);
+  const entry = (id: string, parent: string, ref: string) => ({ _id: id, parent, text: [{ i: 'q', _id: ref }] });
+  const exam = { _id: 'exam', parent: 'sets', text: ['Exam'], isDocument: async () => true,
+    getChildrenRem: async () => [entry('e1', 'exam', 'a')] };
+  rems.sets = { _id: 'sets', parent: null, text: ['RR Tools – Practice Sets'],
+    getChildrenRem: async () => [exam, { _id: 'note', isDocument: async () => false }] };
+  rems.exam = exam;
+  plugin.storage.getSynced.mockImplementation(async (key: string) => key === 'practiceSetsParent' ? 'sets' : undefined);
+  const created: { _id: string; parent?: string; position?: number; text?: unknown[] }[] = [];
+  Object.assign(plugin.rem, { createRem: vi.fn(async () => {
+    const child = { _id: `new${created.length}`, setParent: vi.fn(async (parent: string, position: number) => { child.parent = parent; child.position = position; }),
+      setText: vi.fn(async (text: unknown[]) => { child.text = text; }) } as { _id: string; parent?: string; position?: number; text?: unknown[]; setParent: unknown; setText: unknown };
+    created.push(child); rems[child._id] = child; return child;
+  }) });
+  Object.assign(plugin, { richText: { toString: async (text: unknown[]) => text.filter(p => typeof p === 'string').join('') } });
+  const service = createPracticeService(typed);
+  await service.open();
+  await service.handle({ type: PRACTICE_CONNECT, connectionId: 'one' });
+  const selection = (plugin.messaging.broadcast.mock.calls.at(-1)![0] as { selection: { jobId: string; sets: unknown } }).selection;
+  expect(selection.sets).toEqual([{ _id: 'exam', name: 'Exam' }]);
+  await service.handle({ type: PRACTICE_SAVE, jobId: selection.jobId, setId: 'exam' });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith({ type: PRACTICE_SAVED, jobId: selection.jobId, result: { _id: 'exam', name: 'Exam', added: 1, already: 1 }, error: undefined });
+  expect(created).toMatchObject([{ parent: 'exam', position: 1, text: [{ i: 'q', _id: 'b' }] }]);
+  await service.handle({ type: PRACTICE_START, jobId: selection.jobId, target: 'set' });
+  expect(plugin.window.openRem).toHaveBeenCalledExactlyOnceWith(exam);
+});
+it('still opens the popup when the practice sets cannot be listed', async () => {
+  const { typed, plugin } = setup();
+  plugin.storage.getSynced.mockRejectedValue(new Error('storage unavailable'));
+  const service = createPracticeService(typed);
+  await service.open();
+  await service.handle({ type: PRACTICE_CONNECT, connectionId: 'one' });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ selection: expect.objectContaining({ sets: [] }) }));
 });
 it('reports save errors and allows a corrected retry', async () => {
   const { typed, plugin } = setup();

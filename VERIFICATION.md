@@ -1,3 +1,9 @@
+# RR Tools 0.4.15 add to practice set
+
+When the popup opens, the index lists the document children of “RR Tools – Practice Sets” (names via richText.toString); a listing failure only hides the option. Add to practice set… appears when at least one set exists. The chosen set must still be a child of that parent; the selected Rems it does not reference yet are appended at its end as reference children, each read back. The reply reports added and already-present counts. Save and add share one operation per popup, so repeated clicks cannot duplicate entries. Unit tests cover listing, dedupe, append positions, refusal of foreign or missing sets, the service flow and the popup states; the built popup passes in sandbox and native browser checks. Not verified live in the user's client.
+
+---
+
 # RR Tools 0.4.14 practice sets
 
 Save as practice set… creates a permanent RemNote document named by the user (whitespace normalized, 1–200 characters) under a reusable parent “RR Tools – Practice Sets” (ID in synced plugin storage, recreated if deleted). Each selected Rem gets one child containing only a reference to it, in selection order; every reference is read back after writing. One set per popup selection: repeated clicks reuse the same save, a failed save can be retried. The KB is checked before writing. Open practice set opens the saved document. The temporary practice document and its cleanup are unaffected. Unit tests cover document structure, parent reuse, name validation, incomplete-write detection, duplicate-click protection, KB change and the popup flow; the built popup passes the save flow in sandbox and native browser checks. Not verified live: the saved document's native queue in the user's client.

@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.15:** **Add to practice set…** appends the selection to an existing practice set.
 - **0.4.14:** **Save as practice set…** keeps a selection as a named RemNote document you can practice anytime.
 - **0.4.13:** The practice popup shows how many selected cards are due now, new, and not due yet.
 - **0.4.12:** Practice references are removed after the session, so no reference count stays on your Rems.
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.8:** **Practice Selected Flashcards** in the document's **…** menu.
 - **0.4.7:** New **Practice Selected Flashcards** command.
 - **0.4.5:** **Header Row** and **Column Row** options for pasted tables.
-- **0.4.4:** Colored table paste with a preview.
 
 ## Getting started
 
@@ -87,7 +87,8 @@ To keep a selection, click **Save as practice set…** in the popup, enter a nam
 
 - Practice the set anytime with the document's **Practice** button, including Practice All, in Order, and Without Recording. It also appears in Flashcard Home with its due count.
 - The linked Rems show a reference count while the set exists. Delete the set document to remove it.
-- **Open practice set** in the popup jumps to the new document.
+- To extend a set, select more Rems, run **Practice Selected Flashcards**, and click **Add to practice set…** (shown once at least one set exists). Choose the set and click **Add**: Rems that are not in it yet are added at its end. This also lets you build a set from Rems that are not next to each other.
+- **Open practice set** in the popup jumps to the saved or extended document.
 
 ## Change flashcard directions
 

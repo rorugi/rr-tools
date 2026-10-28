@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { renderWidget, usePlugin } from '@remnote/plugin-sdk';
 import { connectPractice, savePractice, startPractice, type PracticeContext, type StartTarget } from '../practice';
-import { PRACTICE_DOC_TITLE, PRACTICE_SET_NAME_MAX, PRACTICE_SETS_TITLE } from '../native-practice';
+import { PRACTICE_DOC_TITLE, PRACTICE_SET_NAME_MAX, PRACTICE_SETS_TITLE, type PracticeSetResult } from '../native-practice';
 import { errorMessage } from '../directions';
 import { ToolStyles } from '../ui';
 
@@ -13,10 +13,12 @@ export function PracticeSelected() {
   const [busy, setBusy] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const lock = useRef(false);
-  const [saveOpen, setSaveOpen] = useState(false);
+  /** Which practice-set form is open: none, save as a new set, or add to an existing set. */
+  const [form, setForm] = useState<'none' | 'save' | 'add'>('none');
   const [setName, setSetName] = useState(() => `Practice set ${new Date().toISOString().slice(0, 10)}`);
+  const [targetSet, setTargetSet] = useState('');
   const [saving, setSaving] = useState(false);
-  const [savedName, setSavedName] = useState('');
+  const [result, setResult] = useState<{ kind: 'saved' | 'added'; set: PracticeSetResult }>();
   const [saveError, setSaveError] = useState('');
   const saveLock = useRef(false);
   useEffect(() => {
@@ -34,13 +36,24 @@ export function PracticeSelected() {
     finally { setBusy(false); }
   };
   const ready = !!selection?.cardIds.length && !!selection?.jobId;
+  const sets = selection?.sets ?? [];
+  const chosenSet = sets.some(set => set._id === targetSet) ? targetSet : sets[0]?._id ?? '';
   const save = async () => {
-    if (!selection?.jobId || saveLock.current || !setName.trim()) return;
+    const adding = form === 'add';
+    if (!selection?.jobId || saveLock.current || (adding ? !chosenSet : !setName.trim())) return;
     saveLock.current = true; setSaving(true); setSaveError('');
-    try { setSavedName(await savePractice(plugin, selection.jobId, setName)); }
+    try {
+      const set = await savePractice(plugin, selection.jobId, adding ? { setId: chosenSet } : { name: setName });
+      setResult({ kind: adding ? 'added' : 'saved', set });
+    }
     catch (reason) { setSaveError(errorMessage(reason)); saveLock.current = false; }
     finally { setSaving(false); }
   };
+  const cancelForm = () => { setForm('none'); setSaveError(''); };
+  const formStatus = <>
+    {saving && <p role="status">{form === 'add' ? 'Adding to practice set…' : 'Saving practice set…'}</p>}
+    {saveError && <p role="alert">{saveError}</p>}
+  </>;
   const schedule = selection?.schedule; // Absent when an older index answers.
   return <main className="rr-tools rr-paste-dialog rn-clr-background-primary rn-clr-content-primary"
     onPointerDown={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
@@ -57,7 +70,7 @@ export function PracticeSelected() {
         {!!selection.errors.length && <div role="alert"><p>Some selected Rems could not be read:</p>
           <ul className="rr-details">{selection.errors.map((item, i) => <li key={i}>{item}</li>)}</ul>
         </div>}
-        {!saveOpen && !savedName && <>
+        {form === 'none' && !result && <>
           <p className="rr-muted">Only the selected Rems' cards are included; select child Rems to include theirs. Practice runs in RemNote's flashcard screen through “{PRACTICE_DOC_TITLE}”, which is cleared afterwards.</p>
           {ready && <ul className="rr-muted">
             <li><b>Start practice</b>: due and new cards (spaced repetition).</li>
@@ -65,10 +78,26 @@ export function PracticeSelected() {
           </ul>}
         </>}
         {ready && !attempted && <div className="rr-save">
-          {savedName ? <>
-            <p role="status">Saved “{savedName}” in “{PRACTICE_SETS_TITLE}”. Practice it anytime with its Practice button.</p>
+          {result ? <>
+            <p role="status">{result.kind === 'saved'
+              ? <>Saved “{result.set.name}” in “{PRACTICE_SETS_TITLE}”. Practice it anytime with its Practice button.</>
+              : result.set.added
+                ? <>Added {result.set.added} Rem(s) to “{result.set.name}”{result.set.already ? <> ({result.set.already} already in it)</> : null}.</>
+                : <>All selected Rems are already in “{result.set.name}”.</>}</p>
             <button type="button" className="rn-button" onClick={() => void start('set')}>Open practice set</button>
-          </> : saveOpen ? <>
+          </> : form === 'add' ? <>
+            <label>Practice set
+              <select aria-label="Practice set" value={chosenSet} disabled={saving} onChange={e => setTargetSet(e.target.value)}>
+                {sets.map(set => <option key={set._id} value={set._id}>{set.name}</option>)}
+              </select>
+            </label>
+            <p className="rr-muted">Adds the selected Rems that are not in the set yet, at its end.</p>
+            <div className="rr-actions">
+              <button type="button" className="rn-button rr-primary" disabled={saving || !chosenSet} onClick={() => void save()}>Add</button>
+              <button type="button" className="rn-button" disabled={saving} onClick={cancelForm}>Cancel</button>
+            </div>
+            {formStatus}
+          </> : form === 'save' ? <>
             <label>Practice set name
               <input type="text" aria-label="Practice set name" value={setName} maxLength={PRACTICE_SET_NAME_MAX} disabled={saving} autoFocus
                 onChange={e => setSetName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void save(); }} />
@@ -76,11 +105,13 @@ export function PracticeSelected() {
             <p className="rr-muted">Creates a document in “{PRACTICE_SETS_TITLE}” that links to the selected Rems. They show a reference count while the set exists.</p>
             <div className="rr-actions">
               <button type="button" className="rn-button rr-primary" disabled={saving || !setName.trim()} onClick={() => void save()}>Save</button>
-              <button type="button" className="rn-button" disabled={saving} onClick={() => { setSaveOpen(false); setSaveError(''); }}>Cancel</button>
+              <button type="button" className="rn-button" disabled={saving} onClick={cancelForm}>Cancel</button>
             </div>
-            {saving && <p role="status">Saving practice set…</p>}
-            {saveError && <p role="alert">{saveError}</p>}
-          </> : <button type="button" className="rn-button" onClick={() => setSaveOpen(true)}>Save as practice set…</button>}
+            {formStatus}
+          </> : <div className="rr-actions">
+            <button type="button" className="rn-button" onClick={() => setForm('save')}>Save as practice set…</button>
+            {sets.length > 0 && <button type="button" className="rn-button" onClick={() => setForm('add')}>Add to practice set…</button>}
+          </div>}
         </div>}
         {!selection.cardIds.length && <p>No enabled flashcards were found in the selection.</p>}
       </>}
@@ -93,7 +124,7 @@ export function PracticeSelected() {
       </button>}
       {!attempted && <button type="button" className="rn-button" disabled={!ready} onClick={() => void start('modes')}>Other practice modes…</button>}
       <button type="button" className="rn-button" disabled={busy} onClick={() => void plugin.widget.closePopup(false)}>Close</button>
-    </div><div className="rr-version">RR Tools 0.4.14</div></footer>
+    </div><div className="rr-version">RR Tools 0.4.15</div></footer>
   </main>;
 }
 renderWidget(PracticeSelected);

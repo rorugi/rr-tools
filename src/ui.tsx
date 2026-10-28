@@ -24,7 +24,7 @@ export function ToolStyles() {
 .rr-paste-footer{background:var(--rr-bg)}
 .rr-paste-footer .rr-actions{margin-top:12px;padding-top:12px;flex-wrap:wrap}
 .rr-paste-footer .rr-version{margin-top:8px}
-.rr-tools .rr-save{margin:4px 0 12px}.rr-tools .rr-save label{display:block}.rr-tools .rr-save input[type=text]{display:block;width:100%;min-height:36px;margin-top:6px;padding:7px 10px;border:1px solid var(--rr-border);border-radius:6px;background:var(--rr-bg);color:var(--rr-text);font:inherit;font-weight:400}.rr-tools .rr-save input[type=text]:focus{outline:2px solid var(--rr-accent);outline-offset:-1px}.rr-tools .rr-save .rr-actions{justify-content:flex-start;border-top:0;padding-top:0;margin-top:8px}
+.rr-tools .rr-save{margin:4px 0 12px}.rr-tools .rr-save label{display:block}.rr-tools .rr-save input[type=text]{display:block;width:100%;min-height:36px;margin-top:6px;padding:7px 10px;border:1px solid var(--rr-border);border-radius:6px;background:var(--rr-bg);color:var(--rr-text);font:inherit;font-weight:400}.rr-tools .rr-save input[type=text]:focus{outline:2px solid var(--rr-accent);outline-offset:-1px}.rr-tools .rr-save .rr-actions{justify-content:flex-start;border-top:0;padding-top:0;margin-top:8px}.rr-tools .rr-save label select{display:block}
 .rr-table-options{display:flex;gap:20px;flex-wrap:wrap;margin:0 0 10px}.rr-table-options label{display:flex;align-items:center;gap:6px;cursor:pointer}.rr-table-options input{accent-color:var(--rr-accent);width:16px;height:16px;margin:0}
 .rr-paste-box{min-height:100px;max-height:150px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--rr-border);border-radius:6px;padding:10px;font-weight:400}
 .rr-paste-box:focus{outline:2px solid var(--rr-accent);outline-offset:-2px}

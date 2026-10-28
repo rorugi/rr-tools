@@ -1,9 +1,10 @@
 import { expect, it, vi } from 'vitest';
 import type { ReactRNPlugin } from '@remnote/plugin-sdk';
-import { clearPracticeSelection, createPracticeCleanup, openNativePractice, preparePracticeDocument, PRACTICE_DOC_KEY, PRACTICE_DOC_TITLE, PRACTICE_LIST_KEY, PRACTICE_SETS_KEY, PRACTICE_SETS_TITLE, savePracticeSet } from './native-practice';
+import { clearPracticeSelection, createPracticeCleanup, openNativePractice, preparePracticeDocument, PRACTICE_DOC_KEY, PRACTICE_DOC_TITLE, PRACTICE_LIST_KEY, PRACTICE_SETS_KEY, PRACTICE_SETS_TITLE, savePracticeSet, listPracticeSets, addToPracticeSet } from './native-practice';
 
-type FakeRem = { _id: string; parent: string | null; text: unknown[]; isDocument?: boolean;
-  setText: ReturnType<typeof vi.fn>; setIsDocument: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn> };
+type FakeRem = { _id: string; parent: string | null; text: unknown[]; document?: boolean;
+  setText: ReturnType<typeof vi.fn>; setIsDocument: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn>;
+  isDocument: () => Promise<boolean>; getChildrenRem: () => Promise<FakeRem[]> };
 function setup() {
   let url = '/w/notes', next = 0;
   const rems = new Map<string, FakeRem>();
@@ -11,13 +12,16 @@ function setup() {
   const make = (id: string): FakeRem => {
     const rem: FakeRem = { _id: id, parent: null, text: [],
       setText: vi.fn(async (text: unknown[]) => { rem.text = text; }),
-      setIsDocument: vi.fn(async (value: boolean) => { rem.isDocument = value; }),
-      setParent: vi.fn(async (parent: string) => { rem.parent = parent; }) };
+      setIsDocument: vi.fn(async (value: boolean) => { rem.document = value; }),
+      setParent: vi.fn(async (parent: string) => { rem.parent = parent; }),
+      isDocument: async () => !!rem.document,
+      getChildrenRem: async () => [...rems.values()].filter(child => child.parent === rem._id) };
     rems.set(id, rem); return rem;
   };
   const plugin = {
     kb: { getCurrentKnowledgeBaseData: vi.fn(async () => ({ _id: 'kb-test', name: 'Test' })) },
     rem: { createRem: vi.fn(async () => make(`new-${++next}`)), findOne: vi.fn(async (id: string) => rems.get(id)) },
+    richText: { toString: vi.fn(async (text: unknown[]) => text.map(p => typeof p === 'string' ? p : '').join('')) },
     storage: { getSynced: vi.fn(async (key: string) => synced.get(key)), setSynced: vi.fn(async (key: string, value: unknown) => { synced.set(key, value); }) },
     window: { setURL: vi.fn(async (value: string) => { url = value; }), getURL: vi.fn(async () => `https://www.remnote.com${url}`), openRem: vi.fn(async () => {}) },
   };
@@ -30,7 +34,7 @@ it('creates one practice document whose single list Rem references exactly the s
   const doc = await preparePracticeDocument(typed, ['a', 'b']);
   const list = rems.get(synced.get(PRACTICE_LIST_KEY) as string)!;
   expect(synced.get(PRACTICE_DOC_KEY)).toBe(doc._id);
-  expect(rems.get(doc._id)).toMatchObject({ text: [PRACTICE_DOC_TITLE], isDocument: true });
+  expect(rems.get(doc._id)).toMatchObject({ text: [PRACTICE_DOC_TITLE], document: true });
   expect(list.parent).toBe(doc._id);
   expect(list.text).toEqual(['Selected Rems: ', { i: 'q', _id: 'a' }, ', ', { i: 'q', _id: 'b' }]);
 });
@@ -130,9 +134,10 @@ it('saves a named practice set as a document with one reference per selected Rem
   const first = await savePracticeSet(typed, '  Exam   chapter 3 ', ['a', 'b']);
   expect(first.name).toBe('Exam chapter 3');
   const parent = rems.get(synced.get(PRACTICE_SETS_KEY) as string)!;
-  expect(parent).toMatchObject({ text: [PRACTICE_SETS_TITLE], isDocument: true });
+  expect(parent).toMatchObject({ text: [PRACTICE_SETS_TITLE], document: true });
   const set = rems.get(first._id)!;
-  expect(set).toMatchObject({ parent: parent._id, text: ['Exam chapter 3'], isDocument: true });
+  expect(set).toMatchObject({ parent: parent._id, text: ['Exam chapter 3'], document: true });
+  expect(first).toMatchObject({ added: 2, already: 0 });
   const entries = [...rems.values()].filter(rem => rem.parent === set._id);
   expect(entries.map(rem => rem.text)).toEqual([[{ i: 'q', _id: 'a' }], [{ i: 'q', _id: 'b' }]]);
   expect(entries.map(rem => rem.setParent.mock.calls[0])).toEqual([[set._id, 0], [set._id, 1]]);
@@ -159,4 +164,35 @@ it('reports an incomplete set when a reference is not saved', async () => {
     return rem;
   });
   await expect(savePracticeSet(typed, 'Set', ['a', 'b'])).rejects.toThrow('entry 2 of “Set”');
+});
+
+it('lists the existing practice sets in order, ignoring non-document children', async () => {
+  const { typed, rems, make } = setup();
+  await expect(listPracticeSets(typed)).resolves.toEqual([]);
+  const exam = await savePracticeSet(typed, 'Exam', ['a']);
+  const parentId = rems.get(exam._id)!.parent!;
+  make('note').parent = parentId;
+  const hard = await savePracticeSet(typed, 'Hard cards', ['b']);
+  await expect(listPracticeSets(typed)).resolves.toEqual([{ _id: exam._id, name: 'Exam' }, { _id: hard._id, name: 'Hard cards' }]);
+});
+it('adds only the Rems a set does not reference yet, at its end', async () => {
+  const { typed, plugin, rems } = setup();
+  const set = await savePracticeSet(typed, 'Exam', ['a', 'b']);
+  const before = plugin.rem.createRem.mock.calls.length;
+  await expect(addToPracticeSet(typed, set._id, ['b', 'c', 'd'])).resolves.toEqual({ _id: set._id, name: 'Exam', added: 2, already: 1 });
+  expect(plugin.rem.createRem.mock.calls.length - before).toBe(2);
+  const entries = [...rems.values()].filter(rem => rem.parent === set._id);
+  expect(entries.map(rem => (rem.text[0] as { _id: string })._id)).toEqual(['a', 'b', 'c', 'd']);
+  expect(entries.slice(2).map(rem => rem.setParent.mock.calls[0][1])).toEqual([2, 3]);
+  await expect(addToPracticeSet(typed, set._id, ['a', 'd'])).resolves.toMatchObject({ added: 0, already: 2 });
+  expect(plugin.rem.createRem.mock.calls.length - before).toBe(2);
+});
+it('refuses to add to a missing set or a Rem outside the practice sets', async () => {
+  const { typed, plugin, make } = setup();
+  await expect(addToPracticeSet(typed, 'nothing', ['a'])).rejects.toThrow('no longer exists');
+  await savePracticeSet(typed, 'Exam', ['a']);
+  make('elsewhere');
+  await expect(addToPracticeSet(typed, 'elsewhere', ['a'])).rejects.toThrow('no longer exists');
+  await expect(addToPracticeSet(typed, 'elsewhere', [])).rejects.toThrow('unique');
+  expect(plugin.rem.createRem).toHaveBeenCalledTimes(3);
 });

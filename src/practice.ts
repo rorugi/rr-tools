@@ -1,6 +1,6 @@
 import { AppEvents, type ReactRNPlugin, type RNPlugin } from '@remnote/plugin-sdk';
 import { errorMessage, selectedIds } from './directions';
-import { openNativePractice, PRACTICE_DOC_TITLE, PRACTICE_SETS_TITLE, savePracticeSet, type PracticeTarget } from './native-practice';
+import { addToPracticeSet, listPracticeSets, openNativePractice, PRACTICE_DOC_TITLE, PRACTICE_SETS_TITLE, savePracticeSet, type PracticeSetInfo, type PracticeSetResult, type PracticeTarget } from './native-practice';
 
 export const PRACTICE_WIDGET = 'practice-selected';
 export const PRACTICE_CONNECT = 'rr-tools/practice/connect';
@@ -23,7 +23,8 @@ export function scheduleOf(card: ScheduledCard, now: number): keyof PracticeSche
   if (!history.length || history[history.length - 1].score === RESET_SCORE) return 'fresh';
   return card.nextRepetitionTime === undefined || card.nextRepetitionTime <= now ? 'due' : 'later';
 }
-export type PracticeContext = PracticeSelection & { jobId: string };
+/** sets: existing practice sets the selection can be added to. */
+export type PracticeContext = PracticeSelection & { jobId: string; sets?: PracticeSetInfo[] };
 
 /** Read only the explicitly selected Rems. Never gather a document or subtree queue. */
 export async function collectSelectedCards(plugin: Pick<ReactRNPlugin, 'rem'>, ids: string[], now = Date.now()): Promise<PracticeSelection> {
@@ -53,7 +54,7 @@ export async function collectSelectedCards(plugin: Pick<ReactRNPlugin, 'rem'>, i
   return result;
 }
 
-type Message = { type?: string; connectionId?: string; jobId?: string; target?: StartTarget; name?: string; selection?: PracticeContext; error?: string };
+type Message = { type?: string; connectionId?: string; jobId?: string; target?: StartTarget; name?: string; setId?: string; result?: PracticeSetResult; selection?: PracticeContext; error?: string };
 function payload(event: unknown): Message {
   if (!event || typeof event !== 'object') return {};
   const value = 'message' in event ? event.message : event;
@@ -62,7 +63,7 @@ function payload(event: unknown): Message {
 
 /** Rem access and navigation stay in the index; the popup only chooses where practice opens. */
 export function createPracticeService(plugin: ReactRNPlugin, cleanup?: { cancel(): void }) {
-  let current: { selection: PracticeContext; kbId: string; connectionId?: string; work?: Promise<void>; saving?: Promise<{ _id: string; name: string }>; saved?: { _id: string; name: string } } | undefined;
+  let current: { selection: PracticeContext; kbId: string; connectionId?: string; work?: Promise<void>; saving?: Promise<PracticeSetResult>; saved?: PracticeSetResult } | undefined;
   const expired = 'This selection has expired. Select your Rems and reopen Practice Selected Flashcards.';
   let opening = false;
   return {
@@ -73,7 +74,9 @@ export function createPracticeService(plugin: ReactRNPlugin, cleanup?: { cancel(
         const ids = selectedIds((await plugin.editor.getSelectedRem())?.remIds);
         if (!ids.length) { await plugin.app.toast('Select Rems first, then run “Practice Selected Flashcards”.'); return; }
         const kbId = (await plugin.kb.getCurrentKnowledgeBaseData())._id;
-        const selection = { ...await collectSelectedCards(plugin, ids), jobId: crypto.randomUUID() };
+        // A broken practice-sets parent must not block practice; it only hides “Add to practice set…”.
+        const sets = await listPracticeSets(plugin).catch(() => []);
+        const selection = { ...await collectSelectedCards(plugin, ids), jobId: crypto.randomUUID(), sets };
         current = { selection, kbId };
         try { await plugin.widget.openPopup(PRACTICE_WIDGET, {}, false); }
         catch (error) { current = undefined; throw error; }
@@ -83,18 +86,20 @@ export function createPracticeService(plugin: ReactRNPlugin, cleanup?: { cancel(
       const message = payload(event);
       if (message.type === PRACTICE_SAVE) {
         let error: string | undefined;
-        let saved: { _id: string; name: string } | undefined;
+        let saved: PracticeSetResult | undefined;
         const job = current;
         if (!job || job.selection.jobId !== message.jobId || !job.connectionId) error = expired;
         else {
-          // One set per selection: a repeated click must not create duplicates.
+          // One save or add per selection: a repeated click must not create duplicates.
           job.saving ??= (async () => {
             if ((await plugin.kb.getCurrentKnowledgeBaseData())._id !== job.kbId) throw new Error('The knowledge base changed. Select your Rems and reopen Practice Selected Flashcards.');
-            return job.saved = await savePracticeSet(plugin, message.name ?? '', job.selection.remIds);
+            return job.saved = message.setId !== undefined
+              ? await addToPracticeSet(plugin, message.setId, job.selection.remIds)
+              : await savePracticeSet(plugin, message.name ?? '', job.selection.remIds);
           })();
           try { saved = await job.saving; } catch (reason) { error = errorMessage(reason); job.saving = undefined; }
         }
-        await plugin.messaging.broadcast({ type: PRACTICE_SAVED, jobId: message.jobId, name: saved?.name, error });
+        await plugin.messaging.broadcast({ type: PRACTICE_SAVED, jobId: message.jobId, result: saved, error });
         return;
       }
       if (message.type === PRACTICE_START) {
@@ -180,8 +185,8 @@ export function startPractice(plugin: RNPlugin, jobId: string, target: StartTarg
   });
 }
 
-/** Resolves with the saved set's name. */
-export function savePractice(plugin: RNPlugin, jobId: string, name: string): Promise<string> {
+/** Saves a new set ({ name }) or adds to an existing one ({ setId }). */
+export function savePractice(plugin: RNPlugin, jobId: string, request: { name: string } | { setId: string }): Promise<PracticeSetResult> {
   return new Promise((resolve, reject) => {
     let settled = false;
     const finish = () => { settled = true; clearTimeout(timer); plugin.event.removeListener(AppEvents.MessageBroadcast, undefined, listener); };
@@ -189,10 +194,10 @@ export function savePractice(plugin: RNPlugin, jobId: string, name: string): Pro
       const message = payload(event);
       if (settled || message.type !== PRACTICE_SAVED || message.jobId !== jobId) return;
       finish();
-      if (message.error) reject(new Error(message.error)); else resolve(message.name ?? name);
+      if (message.error || !message.result) reject(new Error(message.error || 'RemNote returned no practice set.')); else resolve(message.result);
     };
     const timer = setTimeout(() => { finish(); reject(new Error(`RemNote did not confirm the save. Check “${PRACTICE_SETS_TITLE}” before saving again.`)); }, 30000);
     plugin.event.addListener(AppEvents.MessageBroadcast, undefined, listener);
-    plugin.messaging.broadcast({ type: PRACTICE_SAVE, jobId, name }).catch(error => { if (!settled) { finish(); reject(error); } });
+    plugin.messaging.broadcast({ type: PRACTICE_SAVE, jobId, ...request }).catch(error => { if (!settled) { finish(); reject(error); } });
   });
 }

@@ -42,11 +42,11 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/connect') {
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/connected',connectionId:data.args.message.connectionId,
-       selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job',schedule:{due:1,fresh:0,later:1}}}});
+       selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job',schedule:{due:1,fresh:0,later:1},sets:[{_id:'exam',name:'Exam chapter 2'}]}}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/save') {
      window.practiceSave=data.args.message;
-     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/saved',jobId:'test-job',name:data.args.message.name}});
+     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/saved',jobId:'test-job',result:{_id:'set',name:data.args.message.name,added:1,already:0}}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/start') {
      window.practiceStart=data.args.message;
@@ -86,6 +86,10 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    const close=popup.getByRole('button',{name:'Close',exact:true});
    const box=await close.boundingBox();
    assert.ok(box.y+box.height<520,'Close remains within the bounded popup');
+   await popup.getByRole('button',{name:'Add to practice set…',exact:true}).click();
+   assert.equal(await popup.getByLabel('Practice set',{exact:true}).inputValue(),'exam');
+   if(process.env.RR_ADD_SCREENSHOT) await page.screenshot({path:process.env.RR_ADD_SCREENSHOT});
+   await popup.getByRole('button',{name:'Cancel',exact:true}).click();
    await popup.getByRole('button',{name:'Save as practice set…',exact:true}).click();
    const name=popup.getByLabel('Practice set name');
    await name.fill('Exam chapter 3');
