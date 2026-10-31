@@ -4,6 +4,7 @@ import { describeLines, insertLines } from './lines-insert';
 import { readPasteSettings, DEFAULT_PASTE_SETTINGS } from './paste-settings';
 
 type Fake = { _id: string; parent: string | null; position?: number; text: unknown[]; backText?: unknown[]; direction?: string;
+  tags?: string[]; addTag: ReturnType<typeof vi.fn>; getTagRems: () => Promise<{ _id: string }[]>;
   setText: ReturnType<typeof vi.fn>; setFontSize: ReturnType<typeof vi.fn>; heading?: string; setBackText: ReturnType<typeof vi.fn>; setPracticeDirection: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn>;
   positionAmongstSiblings: () => Promise<number | undefined>; getChildrenRem: () => Promise<Fake[]> };
 function setup() {
@@ -13,6 +14,8 @@ function setup() {
     const rem: Fake = { _id: id, parent, text,
       setText: vi.fn(async (value: unknown[]) => { rem.text = value; }),
       setFontSize: vi.fn(async (value: string) => { rem.heading = value; }),
+      addTag: vi.fn(async (value: string) => { rem.tags = [...rem.tags ?? [], value]; }),
+      getTagRems: async () => (rem.tags ?? []).map(id => ({ _id: id })),
       setBackText: vi.fn(async (value: unknown[]) => { rem.backText = value; }),
       setPracticeDirection: vi.fn(async (value: string) => { rem.direction = value; }),
       setParent: vi.fn(async (value: string | null, position: number) => { rem.parent = value; rem.position = position; }),
@@ -21,7 +24,8 @@ function setup() {
     rems.set(id, rem); return rem;
   };
   const plugin = {
-    rem: { findOne: vi.fn(async (id: string) => rems.get(id)), createRem: vi.fn(async () => make(`new-${++next}`)) },
+    rem: { findOne: vi.fn(async (id: string) => rems.get(id)), createRem: vi.fn(async () => make(`new-${++next}`)),
+      findByName: vi.fn(async (name: unknown[], parent: string | null) => [...rems.values()].find(rem => rem.parent === parent && rem.text.join('') === name.join(''))) },
     richText: { toString: async (text: unknown[]) => text.map(p => typeof p === 'string' ? p : (p as { text?: string }).text ?? '').join('') },
   };
   return { plugin, typed: plugin as unknown as ReactRNPlugin, rems, make };
@@ -96,4 +100,25 @@ it('sets the heading size for heading lines only', async () => {
   await insertLines(typed, { kind: 'end', remId: 'doc' }, [{ front: ['Kapitel'], heading: 1, text: 'Kapitel' }, line('Text'), { front: ['Teil'], heading: 3, text: 'Teil' }]);
   expect(['new-1', 'new-2', 'new-3'].map(id => rems.get(id)!.heading)).toEqual(['H1', undefined, 'H3']);
   expect(rems.get('new-2')!.setFontSize).not.toHaveBeenCalled();
+});
+
+it('tags Rems, reusing existing tag Rems and creating missing ones once', async () => {
+  const { typed, plugin, rems, make } = setup();
+  make('doc'); make('tiere', null, ['Tiere']);
+  const result = await insertLines(typed, { kind: 'end', remId: 'doc' }, [
+    { front: ['perro'], tags: ['Tiere', 'Spanisch'], text: 'perro' }, { front: ['gato'], tags: ['Spanisch'], text: 'gato' }, line('plain'),
+  ]);
+  const spanisch = [...rems.values()].find(rem => rem.text[0] === 'Spanisch')!;
+  expect(spanisch.parent).toBeNull();
+  expect(rems.get('new-1')!.tags).toEqual(['tiere', spanisch._id]);
+  expect(rems.get(['new-3', 'new-2'].find(id => rems.get(id)!.text[0] === 'gato')!)!.tags).toEqual([spanisch._id]);
+  expect(plugin.rem.createRem).toHaveBeenCalledTimes(4); // 3 lines + 1 new tag
+  expect(result).toMatchObject({ rems: 3, tagged: 2, newTags: ['Spanisch'] });
+  expect(describeLines(result)).toBe('Pasted 3 Rems. 2 tagged. New tag: Spanisch.');
+});
+it('reports a tag that was not saved', async () => {
+  const { typed, plugin, make } = setup();
+  make('doc'); make('t', null, ['T']);
+  plugin.rem.createRem.mockImplementation(async () => { const rem = make('x'); rem.addTag.mockResolvedValue(undefined); return rem; });
+  await expect(insertLines(typed, { kind: 'end', remId: 'doc' }, [{ front: ['a'], tags: ['T'], text: 'a' }])).rejects.toThrow('did not save a pasted line');
 });

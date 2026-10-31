@@ -1,4 +1,4 @@
-# RR Tools 0.4.18 practical test plan
+# RR Tools 0.4.19 practical test plan
 
 Run these checks yourself in scratch Rems. They are acceptance checks, not claimed live passes. Record RemNote version, OS, Word/browser version and color mode. Automated evidence is in VERIFICATION.md.
 
@@ -26,6 +26,7 @@ Practice must run in RemNote's own flashcard screen, never inside the popup. The
 - Paste: the empty Rem receives the first line, the others follow as siblings in order. The three arrow lines must be real flashcards with the right direction (check in the Card table), colors kept on both sides; `list >>>` stays plain text.
 - Paste `Die Hauptstadt von {{Österreich}} ist {{Wien}}.`, `{{c1::H}}{{c1::2}}{{c2::O::element}}` and a colored `{{rot}}` with flashcards on: the preview must highlight each answer. In RemNote the first line must give two cloze cards, the second two cards (H and 2 hidden together, O with the hint “element”), and the color must remain inside the cloze. With flashcards off, the braces stay as text.
 - Copy a Word passage with Heading 1, Heading 2, Heading 3 and normal text, plus lines `# Eins`, `## Zwei`, `### Drei`, `#tag` and `#### Vier`. With Split lines on, the preview must show H1/H2/H3 labels for the headings only; in RemNote the new Rems must have the matching heading sizes (colors kept), `#tag` and `#### Vier` stay normal text. With Split lines off, the popup must say that headings need it.
+- Paste `perro >> dog ##Vokabeln`, `##Spanisch gato ##Tiere` and `## Kapitel ##Spanisch` with Split lines on. The preview must show tag chips; in RemNote each Rem must carry its tags (an existing tag Rem reused, missing ones created once at the top level, named in the message) and the text must no longer contain the tags. `C##` and a line of only tags must stay text.
 - Repeat with the caret in a Rem that has text: it must stay unchanged and all lines follow below it. A single line must still insert at the caret.
 - Close and reopen the popup: colors, both line options and table header options must be as last chosen (also on a second device after sync).
 - Document … menu: Multi-Paste must appear directly below Select All Rem. It must add the lines at the end of the open document, without a caret; the popup title must say Multi-Paste and name the document.

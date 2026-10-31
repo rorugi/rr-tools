@@ -3,7 +3,7 @@ import type { HeadingLevel } from './convert';
 
 export type CardDirection = 'forward' | 'backward' | 'both';
 /** One pasted line: a new Rem, optionally a flashcard with a back side and direction, or with cloze deletions. */
-export type PasteLine = { front: RichTextInterface; back?: RichTextInterface; direction?: CardDirection; clozes?: number; heading?: HeadingLevel; text: string };
+export type PasteLine = { front: RichTextInterface; back?: RichTextInterface; direction?: CardDirection; clozes?: number; heading?: HeadingLevel; tags?: string[]; text: string };
 export type SplitOptions = { newId?: () => string; headings?: Record<number, HeadingLevel> };
 export const MAX_LINES = 2000;
 
@@ -15,9 +15,21 @@ const toRuns = (richText: RichTextInterface): Run[] => richText.flatMap(part =>
   typeof part === 'string' ? [{ i: 'm', text: part } as Run]
     : part && typeof part === 'object' && part.i === 'm' && typeof part.text === 'string' ? [part as Run] : []);
 const plainOf = (runs: Run[]) => runs.map(run => run.text).join('');
-/** Plain unformatted runs go back as strings, as RemNote stores them. */
-const fromRuns = (runs: Run[]): RichTextInterface => runs.filter(run => run.text).map(run =>
-  Object.keys(run).every(key => key === 'i' || key === 'text') ? run.text : run);
+const sameFormat = (a: Run, b: Run) => {
+  const keys = (run: Run) => Object.keys(run).filter(key => key !== 'text').sort();
+  const ka = keys(a), kb = keys(b);
+  return ka.length === kb.length && ka.every((key, i) => key === kb[i] && (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key]);
+};
+/** Adjacent runs with the same formatting are merged; plain unformatted runs go back as strings, as RemNote stores them. */
+const fromRuns = (runs: Run[]): RichTextInterface => runs.filter(run => run.text)
+  .reduce<Run[]>((out, run) => {
+    const last = out[out.length - 1];
+    // Separate clozes stay separate blanks, even within one group.
+    if (last && !last.cId && sameFormat(last, run)) out[out.length - 1] = { ...last, text: last.text + run.text };
+    else out.push(run);
+    return out;
+  }, [])
+  .map(run => Object.keys(run).every(key => key === 'i' || key === 'text') ? run.text : run);
 
 /** Runs between two character offsets of the line, keeping each run's formatting. */
 function slice(runs: Run[], start: number, end: number): Run[] {
@@ -80,12 +92,39 @@ export function applyClozes(runs: Run[], newId: () => string = randomId): { runs
   return { runs: out, clozes };
 }
 
+// RemNote's tag shortcut: ##tag anywhere in a line (no space after ##; “## Title” is a heading instead).
+const TAG = /(^|\s)##([^\s#]+)/g;
+
+/** Removes ##tag tokens (with one adjacent space) and returns the tag names; trailing punctuation stays in the text. */
+export function extractTags(runs: Run[]): { runs: Run[]; tags: string[] } | undefined {
+  const text = plainOf(runs);
+  const tags: string[] = [];
+  const cut: [number, number][] = [];
+  for (const match of text.matchAll(TAG)) {
+    const name = match[2].replace(/[.,;:!?)\]]+$/, '');
+    if (!name) continue;
+    let start = match.index!, end = start + match[1].length + 2 + name.length;
+    // Drop the space before the tag, or after it when the tag starts the line.
+    if (!match[1]) while (end < text.length && /\s/.test(text[end])) end++;
+    if (!tags.some(tag => tag.toLowerCase() === name.toLowerCase())) tags.push(name);
+    cut.push([start, end]);
+  }
+  if (!tags.length) return undefined;
+  const kept: Run[] = [];
+  let last = 0;
+  for (const [start, end] of cut) { kept.push(...slice(runs, last, start)); last = end; }
+  kept.push(...slice(runs, last, text.length));
+  const rest = trim(kept);
+  // A line of only tags stays text: there would be no Rem to put them on.
+  return rest.length ? { runs: rest, tags } : undefined;
+}
+
 // Markdown headings: “# ”, “## ”, “### ” at the start of a line (a space is required, so #tag stays text).
 const MARKDOWN_HEADING = /^(#{1,3})[ \t]+(?=\S)/;
 
 /**
  * Splits converted rich text at line breaks into non-empty lines. Lines from <h1>–<h3> (options.headings) or
- * starting with Markdown #, ##, ### become headings. With flashcards on, a line with {{…}} becomes a cloze card;
+ * starting with Markdown #, ##, ### become headings; ##tag tokens become tags. With flashcards on, a line with {{…}} becomes a cloze card;
  * otherwise its first >>, << or <> splits it into a front and back.
  */
 export function splitLines(richText: RichTextInterface, flashcards: boolean, options: SplitOptions = {}): PasteLine[] {
@@ -107,8 +146,10 @@ export function splitLines(richText: RichTextInterface, flashcards: boolean, opt
       heading = markdown[1].length as HeadingLevel;
       runs = trim(slice(runs, markdown[0].length, plainOf(runs).length));
     }
+    const tagged = extractTags(runs);
+    if (tagged) runs = tagged.runs;
     const text = plainOf(runs);
-    const level = heading ? { heading } : {};
+    const level = { ...(heading ? { heading } : {}), ...(tagged ? { tags: tagged.tags } : {}) };
     const cloze = flashcards ? applyClozes(runs, newId) : undefined;
     const card = flashcards && !cloze ? findDelimiter(text) : undefined;
     if (cloze) result.push({ front: fromRuns(cloze.runs), clozes: cloze.clozes, ...level, text });

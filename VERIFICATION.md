@@ -1,3 +1,9 @@
+# RR Tools 0.4.19 ##tags
+
+When lines are split (or for Multi-Paste), ##name tokens preceded by a line start or whitespace are removed from the line (with one adjacent space; trailing punctuation stays) and added as tags: an existing top-level Rem found by name (findByName) is reused, otherwise one is created at the top level once per paste; addTag is verified with getTagRems. Duplicate tags in a line are ignored case-insensitively; a line of only tags stays text; “## Title” remains a heading. Adjacent runs with identical formatting are now merged (cloze runs excepted). A single tagged line is created as its own Rem. Tests cover extraction rules, combination with headings and flashcards, tag reuse/creation, read-back and the popup; the built popup passes in sandbox and native browser checks. Not verified live: tag creation and display in the user's client.
+
+---
+
 # RR Tools 0.4.18 headings
 
 The converter records the line of text inside <h1>–<h3> (Word's Heading 1–3 on the clipboard) as heading levels; h4–h6 stay normal. When lines are split (or for Multi-Paste), those lines, and lines starting with Markdown “# ”, “## ”, “### ” (hashes removed; #tag and #### unchanged), get setFontSize H1–H3 on their new Rem. Headings combine with flashcards and clozes. A single heading or single cloze line is now always created as its own Rem; before, a single cloze line would have been inserted at the caret with literal braces. Without line splitting the popup notes that headings need it. Tests cover heading line indices, Markdown rules, combination with cards/clozes, setFontSize and the popup; the built popup passes text, table and line browser checks in sandbox and native modes. Not verified live: the exact HTML of the user's Word version and RemNote's heading display.

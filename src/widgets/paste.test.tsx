@@ -213,3 +213,15 @@ it('points out that headings need line splitting',async()=>{
   toggle(lineOption(0),true);
   expect(root.querySelector('[role="note"]')).toBeNull();
 });
+
+it('previews ##tags as chips, counts them, and sends a single tagged line as its own Rem',async()=>{
+  connectWith({});
+  await mount();
+  copyText('','perro ##Tiere');
+  expect(root.querySelector('[role="note"]')!.textContent).toContain('##tags');
+  toggle(lineOption(0),true);
+  expect(root.querySelector('.rr-tag')!.textContent).toBe('Tiere');
+  expect(root.textContent).toContain('1 Rem(s) · 1 tagged');
+  await act(async()=>{Simulate.click(pasteButton());});
+  expect((requests()[0][0] as {lines:unknown[]}).lines).toEqual([{front:['perro'],tags:['Tiere'],text:'perro'}]);
+});

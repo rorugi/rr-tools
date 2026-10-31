@@ -78,3 +78,18 @@ it('combines a heading with a flashcard or cloze', () => {
   expect(splitLines([{ i: 'm', text: '# ', b: true }, 'Hauptstadt {{Wien}}'], true, { newId: () => 'x' })[0])
     .toMatchObject({ front: ['Hauptstadt ', { i: 'm', text: 'Wien', cId: 'x' }], clozes: 1, heading: 1 });
 });
+
+it('turns ##tag anywhere in a line into a tag and removes it from the text', () => {
+  const get = (line: string) => { const [l] = splitLines([line], false); return [l.front, l.tags]; };
+  expect(get('perro ##Vokabeln')).toEqual([['perro'], ['Vokabeln']]);
+  expect(get('##Spanisch perro ##Tiere el')).toEqual([['perro el'], ['Spanisch', 'Tiere']]);
+  expect(get('Satz mit ##tag.')).toEqual([['Satz mit.'], ['tag']]);
+  expect(get('a ##x ##X ##y')).toEqual([['a'], ['x', 'y']]);
+  expect(get('C## und a##b bleiben')).toEqual([['C## und a##b bleiben'], undefined]);
+  expect(get('##nur ##tags')).toEqual([['##nur ##tags'], undefined]);
+});
+it('keeps formatting around tags and combines tags with headings and flashcards', () => {
+  expect(splitLines([red('rojo'), ' ##Farben'], false)[0]).toMatchObject({ front: [red('rojo')], tags: ['Farben'] });
+  expect(splitLines(['## Kapitel ##Spanisch'], false)[0]).toMatchObject({ front: ['Kapitel'], heading: 2, tags: ['Spanisch'] });
+  expect(splitLines(['perro >> dog ##Tiere'], true)[0]).toMatchObject({ front: ['perro'], back: ['dog'], tags: ['Tiere'] });
+});

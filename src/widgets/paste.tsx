@@ -78,6 +78,7 @@ function Paste() {
   }, [converted, split, flashcards, toDocument]);
   const cards = lines.value?.filter(line => line.back || line.clozes).length ?? 0;
   const headingCount = lines.value?.filter(line => line.heading).length ?? 0;
+  const taggedCount = lines.value?.filter(line => line.tags?.length).length ?? 0;
   const problem = converted.error || lines.error;
   const paste = async () => {
     if (lock.current || attempted || !context?.jobId) return;
@@ -97,7 +98,7 @@ function Paste() {
       let send = linesFor(value);
       // A single plain line still goes in at the caret, exactly like an ordinary paste.
       // Cards, clozes and headings need their own Rem, so they always go as lines.
-      if (send && !toDocument && send.length === 1 && !send[0].back && !send[0].clozes && !send[0].heading) send = undefined;
+      if (send && !toDocument && send.length === 1 && !send[0].back && !send[0].clozes && !send[0].heading && !send[0].tags) send = undefined;
       if (send && !context.supportsLines) throw new Error('The running RR Tools command cannot create Rems from lines yet. Disable and re-enable RR Tools, then reopen this popup.');
       setAttempted(true);
       await requestPaste(plugin, AppEvents.MessageBroadcast, context.jobId, value.richText, value.table, send);
@@ -147,11 +148,12 @@ function Paste() {
           : lines.value && (split || toDocument) ? <ol className="rr-lines" aria-label="Pasted lines">{lines.value.map((line, i) => <li key={i} className={line.heading ? `rr-h${line.heading}` : undefined}>
               {line.heading && <span className="rr-heading-badge">H{line.heading}</span>}
               <RichRuns value={line.front} />
+              {line.tags?.map(tag => <span key={tag} className="rr-tag" title="Tag">{tag}</span>)}
               {line.back && <><span className="rr-card-arrow" title={`${line.direction} flashcard`}>{line.direction === 'backward' ? ' ← ' : line.direction === 'both' ? ' ↔ ' : ' → '}</span><RichRuns value={line.back} /></>}
             </li>)}</ol>
           : converted.value && <RichRuns value={converted.value.richText} />}
       </div>
-      {(converted.value?.text || converted.value?.table) && <p role="status" className="rr-muted">{converted.value?.table ? `${converted.value.table.tableCount} table(s) · ${converted.value.table.cellCount} cells` : lines.value && (split || toDocument) ? `${lines.value.length} Rem(s)${headingCount ? ` · ${headingCount} heading(s)` : ''}${flashcards && split ? ` · ${cards} flashcard(s)` : ''}` : payload.html ? 'Formatting received' : 'Plain text received — no source colors'} · {converted.value.coloredRuns} colored text segments · {converted.value.text.length} characters</p>}
+      {(converted.value?.text || converted.value?.table) && <p role="status" className="rr-muted">{converted.value?.table ? `${converted.value.table.tableCount} table(s) · ${converted.value.table.cellCount} cells` : lines.value && (split || toDocument) ? `${lines.value.length} Rem(s)${headingCount ? ` · ${headingCount} heading(s)` : ''}${taggedCount ? ` · ${taggedCount} tagged` : ''}${flashcards && split ? ` · ${cards} flashcard(s)` : ''}` : payload.html ? 'Formatting received' : 'Plain text received — no source colors'} · {converted.value.coloredRuns} colored text segments · {converted.value.text.length} characters</p>}
       <label style={{ display: 'block', marginTop: 12 }}>Colors
         <select disabled={busy || attempted} value={mode} onChange={e => update({ mode: e.target.value as ColorMode })}>
           <option value="palette">RemNote palette (approximate)</option>
@@ -159,7 +161,7 @@ function Paste() {
           <option value="plain">Plain text only</option>
         </select>
       </label>
-      {!split && !converted.value?.table && converted.value?.headings && <p className="rr-muted" role="note">The copied text contains headings. Turn on “Split lines into separate Rems” to paste them as RemNote headings.</p>}
+      {!split && !converted.value?.table && (converted.value?.headings || /(^|\s)##[^\s#]|^#{1,3}[ \t]+\S/m.test(converted.value?.text ?? '')) && <p className="rr-muted" role="note">The copied text contains headings or ##tags. Turn on “Split lines into separate Rems” to paste them as RemNote headings and tags.</p>}
       {!!converted.value?.warnings.length && <ul className="rr-muted">{converted.value.warnings.map(w => <li key={w}>{w}</li>)}</ul>}
     </div>
     <footer className="rr-paste-footer">
@@ -169,7 +171,7 @@ function Paste() {
         <button type="button" className="rn-button rr-primary" aria-describedby={setupError || error || problem ? 'rr-paste-error' : undefined} disabled={busy || attempted || !context?.jobId} onClick={paste}>{busy ? 'Pasting…' : 'Paste'}</button>
         <button type="button" className="rn-button" disabled={busy} onClick={() => plugin.widget.closePopup(true)}>{attempted ? 'Close' : 'Cancel'}</button>
       </div>
-      <div className="rr-version">RR Tools 0.4.18</div>
+      <div className="rr-version">RR Tools 0.4.19</div>
     </footer>
   </main>;
 }

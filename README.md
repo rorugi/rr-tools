@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.19:** `##tag` in a pasted line tags the new Rem (existing tags are reused, missing ones created).
 - **0.4.18:** Word headings (H1–H3) and Markdown `#`, `##`, `###` lines become RemNote headings when pasting lines.
 - **0.4.17:** Pasted lines with `{{…}}` become cloze flashcards, including `{{c1::…}}` groups and hints.
 - **0.4.16:** Paste lines as separate Rems, turn >>, << and <> lines into flashcards, remembered paste options, a prefilled paste box, and **Multi-Paste** in the document menu.
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.12:** Practice references are removed after the session, so no reference count stays on your Rems.
 - **0.4.11:** **Practice Selected Flashcards** runs in RemNote's own flashcard screen instead of a popup.
 - **0.4.10:** Popup practice for plugins running in restricted mode (replaced in 0.4.11).
-- **0.4.9:** Added the knowledge-base permission needed for selected-card practice.
 
 ## Getting started
 
@@ -66,6 +66,15 @@ With **Split lines into separate Rems** (and always with Multi-Paste):
 - Lines starting with Markdown `# `, `## `, or `### ` become H1, H2, or H3; the hashes are removed. A space after the hashes is required, so `#tag` stays text, and `####` is not converted.
 
 Headings can be combined with flashcards and clozes. The preview shows them larger with an **H1**–**H3** label. Without line splitting, the popup points out that headings need it, because one Rem can only have one heading size.
+
+### Tags
+
+With **Split lines into separate Rems** (and always with Multi-Paste), `##tag` anywhere in a line tags the new Rem, as typing `##` does in RemNote: `perro >> dog ##Vokabeln` becomes a flashcard tagged **Vokabeln**.
+
+- The tag is removed from the text; a following comma or period stays.
+- An existing top-level Rem with that name is used as the tag; otherwise it is created at the top level. Each missing tag is created only once per paste, and the result message names new tags.
+- Tags need `##` directly before the word: `## Title` (with a space) is a heading, `C##` stays text, and a line consisting only of tags stays text.
+- Tags work together with headings, flashcards, and clozes, and appear as chips in the preview.
 
 ### Multi-Paste
 
