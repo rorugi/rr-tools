@@ -6,6 +6,7 @@ const legacy = process.env.RR_LEGACY_HEIGHT === '1';
 const widget = ['paste', 'practice-selected'].includes(process.env.RR_TEST_WIDGET) ? process.env.RR_TEST_WIDGET : 'directions-dialog';
 const width = widget === 'paste' ? 620 : 560;
 const tableFixture = process.env.RR_TABLE_FIXTURE === '1';
+const linesFixture = process.env.RR_LINES_FIXTURE === '1';
 const noPasteIndex = process.env.RR_NO_PASTE_INDEX === '1';
 const { chromium } = require('playwright');
 global.self = global;
@@ -38,7 +39,7 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    if(data.methodName==='widget.getWidgetContext') response=widget === 'paste' ? {widgetInstanceId:1} : {widgetInstanceId:1,contextData:{remIds:['test-card'],jobId:'test-job',readable:1,accessErrors:[]}};
    if(!native && data.methodName==='widgetEvents.updateWidgetContainerDimension') document.querySelector('iframe').style.height=data.args.height+'px';
    if(!noPasteIndex && data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/paste/connect') {
-     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/paste/connected',connectionId:data.args.message.connectionId,jobId:'test-job',supportsTables:true}});
+     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/paste/connected',connectionId:data.args.message.connectionId,jobId:'test-job',supportsTables:true,supportsLines:true}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/connect') {
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/connected',connectionId:data.args.message.connectionId,
@@ -54,7 +55,7 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/started',jobId:'test-job'}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/paste/request') {
-     window.pastePayload=data.args.message.richText; window.pasteTable=data.args.message.table;
+     window.pastePayload=data.args.message.richText; window.pasteTable=data.args.message.table; window.pasteLines=data.args.message.lines;
      window.popupClosed=true; // Fake index handles the request; service integration test verifies real ordering.
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/paste/response',jobId:'test-job'}});
    }
@@ -114,6 +115,22 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    await input.waitFor({state:'visible'});
    assert.equal(await popup.getByRole('alert').count(),0,'An empty box must not cause a conversion error: '+await popup.getByRole('alert').allTextContents());
    if(noPasteIndex) await popup.getByRole('alert').filter({hasText:'disable and re-enable RR Tools'}).waitFor();
+   if(linesFixture) {
+     await popup.getByRole('checkbox',{name:'Split lines into separate Rems',exact:true}).check();
+     const cards=popup.getByRole('checkbox',{name:'Create flashcards from >> << <>',exact:true});
+     assert.equal(await cards.isEnabled(),true);
+     await cards.check();
+     const html='<p><span style="color:#c00000">el perro</span> &gt;&gt; the dog</p><p><span style="color:#0070c0">la casa</span> &lt;&gt; the house</p><p>los gatos &lt;&lt; the cats</p><p>Kapitel 3</p>';
+     await input.evaluate((el,html)=>{const data=new DataTransfer();data.setData('text/html',html);el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));},html);
+     await popup.getByRole('status').filter({hasText:'4 Rem(s) · 3 flashcard(s)'}).waitFor();
+     assert.deepEqual(await input.locator('li').allTextContents(),['el perro → the dog','la casa ↔ the house','los gatos ← the cats','Kapitel 3']);
+     await page.screenshot({path:process.env.RR_SCREENSHOT || 'browser-test.png'});
+     await popup.getByRole('button',{name:'Paste',exact:true}).click();
+     await page.waitForFunction(()=>!!window.pasteLines);
+     assert.deepEqual(await page.evaluate(()=>window.pasteLines.map(l=>l.direction||null)),['forward','both','backward',null]);
+     console.log('PASS line and flashcard paste',native?'native':'sandbox');
+     return;
+   }
    if(tableFixture) {
      const html=fs.readFileSync('fixtures/word-spanish-colors.html','utf8');
      await input.evaluate((el,html)=>{const data=new DataTransfer();data.setData('text/html',html);el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));},html);

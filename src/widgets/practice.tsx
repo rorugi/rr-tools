@@ -124,7 +124,7 @@ export function PracticeSelected() {
       </button>}
       {!attempted && <button type="button" className="rn-button" disabled={!ready} onClick={() => void start('modes')}>Other practice modes…</button>}
       <button type="button" className="rn-button" disabled={busy} onClick={() => void plugin.widget.closePopup(false)}>Close</button>
-    </div><div className="rr-version">RR Tools 0.4.15</div></footer>
+    </div><div className="rr-version">RR Tools 0.4.16</div></footer>
   </main>;
 }
 renderWidget(PracticeSelected);

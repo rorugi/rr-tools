@@ -101,7 +101,7 @@ it('connects to the captured destination without requiring popup context or read
   plugin.focus.getFocusedRem.mockClear();
   const message={message:{type:'rr-tools/paste/connect',connectionId:'client-1'}};
   await service.handle(message);await service.handle(message);
-  expect(plugin.messaging.broadcast).toHaveBeenCalledWith({type:'rr-tools/paste/connected',connectionId:'client-1',jobId:plugin.widget.openPopup.mock.calls[0][1].jobId,supportsTables:true,error:undefined});
+  expect(plugin.messaging.broadcast).toHaveBeenCalledWith({type:'rr-tools/paste/connected',connectionId:'client-1',jobId:plugin.widget.openPopup.mock.calls[0][1].jobId,supportsTables:true,supportsLines:true,target:'caret',destinationName:undefined,error:undefined});
   expect(plugin.focus.getFocusedRem).not.toHaveBeenCalled();
   expect(plugin.editor.insertRichText).not.toHaveBeenCalled();
   await service.handle({message:{type:'rr-tools/paste/connect',connectionId:'another-popup'}});
@@ -112,4 +112,69 @@ it('never invents a destination when no command captured one', async () => {
   await service.handle({message:{type:'rr-tools/paste/connect',connectionId:'client-1'}});
   expect(plugin.messaging.broadcast).toHaveBeenCalledWith(expect.objectContaining({error:expect.stringContaining('No destination Rem was captured'),jobId:undefined}));
   expect(plugin.focus.getFocusedRem).not.toHaveBeenCalled();
+});
+
+function withRems(plugin: ReturnType<typeof setup>['plugin'], editorText: unknown[] = ['original']) {
+  type R = { _id: string; parent: string | null; position?: number; text: unknown[]; backText?: unknown[]; direction?: string };
+  const rems = new Map<string, R>();
+  let next = 0;
+  const make = (id: string, parent: string | null, text: unknown[] = []) => {
+    const rem: R & Record<string, unknown> = { _id: id, parent, text,
+      setText: async (value: unknown[]) => { rem.text = value; }, setBackText: async (value: unknown[]) => { rem.backText = value; },
+      setPracticeDirection: async (value: string) => { rem.direction = value; },
+      setParent: async (value: string | null, position: number) => { rem.parent = value; rem.position = position; },
+      positionAmongstSiblings: async () => 0, getChildrenRem: async () => [...rems.values()].filter(child => child.parent === id) };
+    rems.set(id, rem); return rem;
+  };
+  make('doc', null, ['My doc']); make('rem1', 'doc', editorText);
+  Object.assign(plugin, {
+    rem: { findOne: vi.fn(async (id: string) => rems.get(id)), createRem: vi.fn(async () => make(`new${++next}`, null)) },
+    richText: { toString: async (text: unknown[]) => text.map(p => typeof p === 'string' ? p : (p as { text?: string }).text ?? '').join('') },
+  });
+  Object.assign(plugin.window, { getOpenPaneRemId: vi.fn(async () => 'doc'), getLastFocusedPane: vi.fn(async () => 'pane1') });
+  plugin.editor.getFocusedEditorText.mockResolvedValue(editorText);
+  return rems;
+}
+const linesRequest = (plugin: ReturnType<typeof setup>['plugin'], service: ReturnType<typeof setup>['service']) => service.handle({ message: { type: PASTE_REQUEST,
+  jobId: plugin.widget.openPopup.mock.calls[0][1].jobId, richText: ['x'],
+  lines: [{ front: ['hund'], back: ['dog'], direction: 'forward', text: 'hund >> dog' }, { front: ['note'], text: 'note' }] } });
+
+it('Multi-Paste captures the active document and appends lines at its end without the editor', async () => {
+  const { plugin, service } = setup();
+  const rems = withRems(plugin);
+  await service.openDocument();
+  await service.handle({ message: { type: 'rr-tools/paste/connect', connectionId: 'c' } });
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ target: 'document', destinationName: 'My doc', supportsLines: true }));
+  plugin.focus.getFocusedRem.mockClear();
+  await linesRequest(plugin, service);
+  expect(plugin.focus.getFocusedRem).not.toHaveBeenCalled();
+  expect(plugin.editor.insertRichText).not.toHaveBeenCalled();
+  expect([rems.get('new1'), rems.get('new2')]).toMatchObject([
+    { parent: 'doc', position: 1, text: ['hund'], backText: ['dog'], direction: 'forward' }, { parent: 'doc', position: 2, text: ['note'] }]);
+  expect(plugin.app.toast).toHaveBeenLastCalledWith('Pasted 2 Rems (1 flashcard).');
+  expect(plugin.messaging.broadcast).toHaveBeenLastCalledWith({ type: PASTE_RESPONSE, jobId: plugin.widget.openPopup.mock.calls[0][1].jobId, error: undefined });
+});
+it('Multi-Paste refuses a pane without a document', async () => {
+  const { plugin, service } = setup();
+  withRems(plugin);
+  (plugin.window as unknown as { getOpenPaneRemId: ReturnType<typeof vi.fn> }).getOpenPaneRemId.mockResolvedValue(undefined);
+  await expect(service.openDocument()).rejects.toThrow('not a Rem document');
+  expect(plugin.widget.openPopup).not.toHaveBeenCalled();
+});
+it('pastes split lines below the caret Rem, filling it when it was empty', async () => {
+  const { plugin, service } = setup();
+  const rems = withRems(plugin, []);
+  await service.open();
+  await linesRequest(plugin, service);
+  expect(plugin.editor.insertRichText).not.toHaveBeenCalled();
+  expect(rems.get('rem1')).toMatchObject({ text: ['hund'], backText: ['dog'] });
+  expect(rems.get('new1')).toMatchObject({ parent: 'doc', position: 1, text: ['note'] });
+});
+it('keeps a non-empty caret Rem and adds every line after it', async () => {
+  const { plugin, service } = setup();
+  const rems = withRems(plugin, ['keep me']);
+  await service.open();
+  await linesRequest(plugin, service);
+  expect(rems.get('rem1')!.text).toEqual(['keep me']);
+  expect([rems.get('new1')!.text, rems.get('new2')!.text]).toEqual([['hund'], ['note']]);
 });

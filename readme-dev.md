@@ -39,7 +39,7 @@ The build validates `public/manifest.json` (including the `KnowledgeBaseInfo / R
 ## Tests
 
 - `npm test` runs the Vitest suites (converters, services, popups, manifest scopes, practice document handling).
-- `scripts/browser-smoke.cjs` renders a built popup with the real SDK in a headless browser against a simulated host. Set `RR_TEST_WIDGET=paste` or `practice-selected` and `RR_TEST_MODE=sandbox` or `native`; `RR_BROWSER` selects the browser executable (`bundled` uses Playwright's Chromium, default is Edge). Add `RR_TABLE_FIXTURE=1` for the table paste fixture.
+- `scripts/browser-smoke.cjs` renders a built popup with the real SDK in a headless browser against a simulated host. Set `RR_TEST_WIDGET=paste` or `practice-selected` and `RR_TEST_MODE=sandbox` or `native`; `RR_BROWSER` selects the browser executable (`bundled` uses Playwright's Chromium, default is Edge). Add `RR_TABLE_FIXTURE=1` for the table paste fixture or `RR_LINES_FIXTURE=1` for the line and flashcard fixture.
 - `TEST-PLAN.md` lists manual acceptance checks in RemNote; `VERIFICATION.md` records what was verified for each version.
 - `scripts/verify-remnote-host.cjs` documents the filtered-queue host contract used before 0.4.11; it is no longer used by the plugin.
 

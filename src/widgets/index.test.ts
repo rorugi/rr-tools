@@ -55,6 +55,10 @@ it('sends the unprefixed menu endpoint with html through the actual SDK transpor
   expect(messages.find(m => m.methodName === 'registerRemMenuItem' && m.args.id === 'practice-selected-flashcards')?.args.html).toBe('Practice Selected Flashcards');
   expect(messages.find(m => m.methodName === 'registerMenuItem' && m.args.id === 'practice-selected-document-menu')?.args).toMatchObject({ name: 'Practice Selected Flashcards', location: 'DocumentMenu' });
   expect(messages.find(m => m.methodName === 'registerWidget' && m.args.fileName === 'practice-selected')?.args.location).toBe('Popup');
+  const menus = messages.filter(m => m.methodName === 'registerMenuItem').map(m => m.args.id);
+  expect(menus.slice(0, 2)).toEqual(['select-all-document-menu', 'multi-paste-document-menu']);
+  expect(messages.find(m => m.args.id === 'multi-paste-document-menu')?.args).toMatchObject({ name: 'Multi-Paste', location: 'DocumentMenu' });
+  expect(commands).toContain('multi-paste');
   const events = vi.mocked(plugin.event.addListener).mock.calls.map(call => call[0]);
   expect(events).toEqual(expect.arrayContaining(['queue.enter', 'queue.exit']));
 });

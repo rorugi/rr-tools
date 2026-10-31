@@ -12,10 +12,18 @@ let cleanupPractice: (() => void) | undefined;
 async function onActivate(plugin: ReactRNPlugin) {
   const selectAll = makeSelectAll(plugin);
   await plugin.app.registerCommand({ id: 'select-all-document-rems', name: 'RR Tool Select All', action: selectAll });
+  // Created early so Multi-Paste can be registered directly below Select All Rem in the document menu.
+  const paste = createPasteService(plugin);
+  const multiPaste = () => paste.openDocument().catch(e => plugin.app.toast(String(e)));
   try {
     await plugin.app.registerMenuItem({ id: 'select-all-document-menu', name: 'Select All Rem', location: PluginCommandMenuLocation.DocumentMenu, action: selectAll });
   } catch (e) {
     await plugin.app.toast(`Select All Rem menu unavailable: ${String(e)}. Use “RR Tool Select All” from the command menu.`);
+  }
+  try {
+    await plugin.app.registerMenuItem({ id: 'multi-paste-document-menu', name: 'Multi-Paste', location: PluginCommandMenuLocation.DocumentMenu, action: multiPaste });
+  } catch (e) {
+    await plugin.app.toast(`Multi-Paste menu unavailable: ${String(e)}. Use “RR Tools: Multi-Paste…” from the command menu.`);
   }
   await plugin.app.registerWidget(DIRECTIONS_WIDGET, WidgetLocation.Popup, { dimensions: { width: 560, height: 'auto' } });
   const service = createDirectionService(plugin);
@@ -34,11 +42,11 @@ async function onActivate(plugin: ReactRNPlugin) {
     await plugin.app.toast(`RR Tools context menu unavailable: ${String(error)}. Use the command menu.`);
   }
   await plugin.app.registerWidget('paste', WidgetLocation.Popup, { dimensions: { width: 620, height: 'auto' } });
-  const paste = createPasteService(plugin);
   const pasteListener = (event: unknown) => { void paste.handle(event).catch(e => plugin.app.toast(String(e))); };
   plugin.event.addListener(AppEvents.MessageBroadcast, undefined, pasteListener);
   cleanupPaste = () => { plugin.event.removeListener(AppEvents.MessageBroadcast, undefined, pasteListener); paste.clear(); };
   await plugin.app.registerCommand({ id: 'paste-with-colors', name: 'RR Tools: Paste with colors…', action: () => paste.open().catch(e => plugin.app.toast(String(e))) });
+  await plugin.app.registerCommand({ id: 'multi-paste', name: 'RR Tools: Multi-Paste…', action: multiPaste });
   await plugin.app.registerWidget(PRACTICE_WIDGET, WidgetLocation.Popup, { dimensions: { height: 'auto', width: 560 } });
   const practiceCleanup = createPracticeCleanup(plugin, e => plugin.app.toast(`Practice Selected Flashcards: could not clear the practice list: ${String(e)}`));
   const practice = createPracticeService(plugin, practiceCleanup);

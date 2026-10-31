@@ -1,4 +1,4 @@
-# RR Tools 0.4.15 practical test plan
+# RR Tools 0.4.16 practical test plan
 
 Run these checks yourself in scratch Rems. They are acceptance checks, not claimed live passes. Record RemNote version, OS, Word/browser version and color mode. Automated evidence is in VERIFICATION.md.
 
@@ -19,6 +19,14 @@ Practice must run in RemNote's own flashcard screen, never inside the popup. The
 - With RR Study Timer enabled, check its top line and ordinary tracking in the flashcard screen. Exit with RemNote's normal queue control.
 - If RemNote refuses the direct route, the plugin must open the practice document instead and say so in a toast; it must never open the global queue.
 - On read failures, show the failing Rem IDs and actual errors. Starting the remaining cards must require an explicit click. Disable the plugin while opening to check the connection error.
+
+## Lines, flashcards and Multi-Paste (user-run)
+
+- Copy several colored lines from Word, including `perro >> dog`, `casa <> house`, `gatos << cats`, `list >>>` and an empty line. Place the caret in an empty Rem, run Paste with colors, enable both line options. The box must be prefilled (or accept Ctrl+V); the preview must show one numbered line per Rem with →, ↔, ← and no line for the empty one.
+- Paste: the empty Rem receives the first line, the others follow as siblings in order. The three arrow lines must be real flashcards with the right direction (check in the Card table), colors kept on both sides; `list >>>` stays plain text.
+- Repeat with the caret in a Rem that has text: it must stay unchanged and all lines follow below it. A single line must still insert at the caret.
+- Close and reopen the popup: colors, both line options and table header options must be as last chosen (also on a second device after sync).
+- Document … menu: Multi-Paste must appear directly below Select All Rem. It must add the lines at the end of the open document, without a caret; the popup title must say Multi-Paste and name the document.
 
 ## Header options (user-run)
 

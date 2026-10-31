@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.16:** Paste lines as separate Rems, turn >>, << and <> lines into flashcards, remembered paste options, a prefilled paste box, and **Multi-Paste** in the document menu.
 - **0.4.15:** **Add to practice set…** appends the selection to an existing practice set.
 - **0.4.14:** **Save as practice set…** keeps a selection as a named RemNote document you can practice anytime.
 - **0.4.13:** The practice popup shows how many selected cards are due now, new, and not due yet.
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.9:** Added the knowledge-base permission needed for selected-card practice.
 - **0.4.8:** **Practice Selected Flashcards** in the document's **…** menu.
 - **0.4.7:** New **Practice Selected Flashcards** command.
-- **0.4.5:** **Header Row** and **Column Row** options for pasted tables.
 
 ## Getting started
 
@@ -26,21 +26,33 @@ Open RemNote's command menu and search for **RR Tools**:
 | Command | What it does |
 | --- | --- |
 | **RR Tools: Paste with colors…** | Pastes copied text or tables with their colors, bold, italic, underline, inline code, and links. |
+| **RR Tools: Multi-Paste…** | Pastes copied lines as new Rems or flashcards at the end of the current document. |
 | **Practice Selected Flashcards** | Practices only the cards of the selected Rems in RemNote's flashcard screen. |
 | **RR Tools: Change selected flashcard directions** | Switches selected flashcards between Forward, Backward, and Two-way. |
 | **RR Tool Select All** | Selects all Rems of the current document, including nested ones. |
 
-**Practice Selected Flashcards** and **Change selected flashcard directions** are also in the Rem context menu. **Practice Selected Flashcards** and **Select All Rem** are also in the document's **…** menu.
+**Practice Selected Flashcards** and **Change selected flashcard directions** are also in the Rem context menu. **Select All Rem**, **Multi-Paste**, and **Practice Selected Flashcards** are also in the document's **…** menu.
 
 ## Paste with colors
 
 1. Copy formatted text from Microsoft Word or a website.
 2. Place the caret in the destination Rem, or select text within its text field.
 3. Run **RR Tools: Paste with colors…**.
-4. Paste into the box with **Ctrl+V** (Windows/Linux) or **Cmd+V** (macOS). On touch devices, use the system Paste action.
-5. Check the preview, choose a color mode, and click **Paste**.
+4. The box is filled from the clipboard when RemNote allows it. Otherwise paste into the box with **Ctrl+V** (Windows/Linux) or **Cmd+V** (macOS); on touch devices, use the system Paste action.
+5. Check the preview, choose your options, and click **Paste**.
 
-With an empty box, **Paste** tries to read the clipboard directly. If your browser blocks this, paste into the box instead.
+Your choices (colors, line and flashcard options, table headers) are remembered for the next paste.
+
+### Lines and flashcards
+
+- **Split lines into separate Rems:** each line becomes its own Rem, directly below the Rem with the caret. If that Rem is empty, it receives the first line. A single line is still inserted at the caret.
+- **Create flashcards from >> << <>:** a line such as `perro >> dog` becomes a flashcard with the text before the arrow on the front and the text after it on the back: `>>` forward, `<<` backward, `<>` two-way. Colors and formatting are kept on both sides. The preview marks flashcards with →, ←, or ↔.
+
+Only the first arrow in a line is used. `>>>` (RemNote's multi-line cards) and lines with an empty side stay ordinary text.
+
+### Multi-Paste
+
+Choose **Multi-Paste** from the document's **…** menu (below **Select All Rem**) or run **RR Tools: Multi-Paste…**. It works like Paste with colors, but the pasted lines are added as new Rems at the end of the current document, so you don't need to place the caret first. Tables are added as a **Pasted table** child of the document.
 
 ### Color modes
 
@@ -59,7 +71,7 @@ When the copied content contains a table, the paste box shows a colored preview.
 | **Header Row** | Uses the first row as column headers. |
 | **Column Row** | Uses the first column as row headers. |
 
-Both options start unchecked for each paste and can be combined. They apply to every table in the copied content and update the preview immediately.
+Both options can be combined and are remembered for the next paste. They apply to every table in the copied content and update the preview immediately.
 
 Multiple tables, surrounding text, empty cells, and merged cells are supported, up to **500 cells** per paste. Nested tables are not supported. If a paste fails, check the new **Pasted table** child before retrying; RR Tools never deletes existing notes.
 
