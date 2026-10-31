@@ -40,3 +40,25 @@ it('limits the number of lines', () => {
   expect(splitLines([Array(MAX_LINES).fill('x').join('\n')], false)).toHaveLength(MAX_LINES);
   expect(() => splitLines([Array(MAX_LINES + 1).fill('x').join('\n')], false)).toThrow(`at most ${MAX_LINES}`);
 });
+
+const ids = () => { let n = 0; return () => `id${++n}`; };
+it('turns {{…}} into cloze runs with one card per cloze', () => {
+  const [line] = splitLines(['Die Hauptstadt von {{Österreich}} ist {{Wien}}.'], true, ids());
+  expect(line).toEqual({ front: ['Die Hauptstadt von ', { i: 'm', text: 'Österreich', cId: 'id1' }, ' ist ', { i: 'm', text: 'Wien', cId: 'id2' }, '.'],
+    clozes: 2, text: 'Die Hauptstadt von {{Österreich}} ist {{Wien}}.' });
+});
+it('groups Anki-style {{c1::…}} clozes, keeps hints, and handles answers that look like the prefix', () => {
+  const [line] = splitLines(['{{c1::H}}{{c1::2}}{{c2::O::element}} and {{c3::c}}'], true, ids());
+  expect(line.front).toEqual([{ i: 'm', text: 'H', cId: 'id1' }, { i: 'm', text: '2', cId: 'id1' },
+    { i: 'm', text: 'O', cId: 'id2', 'cloze-hint': 'element' }, ' and ', { i: 'm', text: 'c', cId: 'id3' }]);
+  expect(line.clozes).toBe(3);
+});
+it('keeps colors inside a cloze and takes precedence over arrows', () => {
+  const [line] = splitLines([red('{{rojo}}'), ' >> red'], true, ids());
+  expect(line).toMatchObject({ front: [{ i: 'm', text: 'rojo', tc: 1, cId: 'id1' }, ' >> red'], clozes: 1 });
+  expect(line.back).toBeUndefined();
+});
+it('leaves braces alone when flashcards are off or the cloze is empty', () => {
+  expect(splitLines(['{{a}}'], false)[0]).toEqual({ front: ['{{a}}'], text: '{{a}}' });
+  expect(splitLines(['{{ }} and {{c1::}}'], true)[0].clozes).toBeUndefined();
+});

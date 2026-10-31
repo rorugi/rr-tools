@@ -60,6 +60,8 @@ it('writes flashcards with back text and direction', async () => {
   expect(rems.get('new-1')).toMatchObject({ text: ['hund'], backText: ['dog'], direction: 'both' });
   expect(rems.get('new-2')!.setBackText).not.toHaveBeenCalled();
   expect(describeLines(result)).toBe('Pasted 2 Rems (1 flashcard).');
+  const cloze = await insertLines(typed, { kind: 'end', remId: 'doc' }, [{ front: ['a ', { i: 'm', text: 'b', cId: 'x' }], clozes: 1, text: 'a {{b}}' }]);
+  expect(describeLines(cloze)).toBe('Pasted 1 Rem (1 flashcard).');
 });
 it('reports how far the paste got when a Rem is not created', async () => {
   const { typed, plugin, make } = setup();

@@ -117,17 +117,19 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    if(noPasteIndex) await popup.getByRole('alert').filter({hasText:'disable and re-enable RR Tools'}).waitFor();
    if(linesFixture) {
      await popup.getByRole('checkbox',{name:'Split lines into separate Rems',exact:true}).check();
-     const cards=popup.getByRole('checkbox',{name:'Create flashcards from >> << <>',exact:true});
+     const cards=popup.getByRole('checkbox',{name:'Create flashcards from >> << <> {{ }}',exact:true});
      assert.equal(await cards.isEnabled(),true);
      await cards.check();
-     const html='<p><span style="color:#c00000">el perro</span> &gt;&gt; the dog</p><p><span style="color:#0070c0">la casa</span> &lt;&gt; the house</p><p>los gatos &lt;&lt; the cats</p><p>Kapitel 3</p>';
+     const html='<p><span style="color:#c00000">el perro</span> &gt;&gt; the dog</p><p><span style="color:#0070c0">la casa</span> &lt;&gt; the house</p><p>los gatos &lt;&lt; the cats</p><p>Die Hauptstadt ist {{<span style="color:#c00000">Wien</span>}}</p><p>Kapitel 3</p>';
      await input.evaluate((el,html)=>{const data=new DataTransfer();data.setData('text/html',html);el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));},html);
-     await popup.getByRole('status').filter({hasText:'4 Rem(s) · 3 flashcard(s)'}).waitFor();
-     assert.deepEqual(await input.locator('li').allTextContents(),['el perro → the dog','la casa ↔ the house','los gatos ← the cats','Kapitel 3']);
+     await popup.getByRole('status').filter({hasText:'5 Rem(s) · 4 flashcard(s)'}).waitFor();
+     assert.deepEqual(await input.locator('li').allTextContents(),['el perro → the dog','la casa ↔ the house','los gatos ← the cats','Die Hauptstadt ist Wien','Kapitel 3']);
+     assert.equal(await input.locator('.rr-cloze').textContent(),'Wien');
      await page.screenshot({path:process.env.RR_SCREENSHOT || 'browser-test.png'});
      await popup.getByRole('button',{name:'Paste',exact:true}).click();
      await page.waitForFunction(()=>!!window.pasteLines);
-     assert.deepEqual(await page.evaluate(()=>window.pasteLines.map(l=>l.direction||null)),['forward','both','backward',null]);
+     assert.deepEqual(await page.evaluate(()=>window.pasteLines.map(l=>l.direction||null)),['forward','both','backward',null,null]);
+     assert.equal(await page.evaluate(()=>window.pasteLines[3].clozes),1);
      console.log('PASS line and flashcard paste',native?'native':'sandbox');
      return;
    }

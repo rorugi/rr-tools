@@ -1,8 +1,8 @@
 import type { RichTextElementTextInterface, RichTextInterface } from '@remnote/plugin-sdk';
 
 export type CardDirection = 'forward' | 'backward' | 'both';
-/** One pasted line: a new Rem, optionally a flashcard with a back side and direction. */
-export type PasteLine = { front: RichTextInterface; back?: RichTextInterface; direction?: CardDirection; text: string };
+/** One pasted line: a new Rem, optionally a flashcard with a back side and direction, or with cloze deletions. */
+export type PasteLine = { front: RichTextInterface; back?: RichTextInterface; direction?: CardDirection; clozes?: number; text: string };
 export const MAX_LINES = 2000;
 
 // RemNote's own flashcard delimiters: >> forward, << backward, <> two-way.
@@ -48,8 +48,41 @@ export function findDelimiter(text: string): { index: number; direction: CardDir
   return undefined;
 }
 
-/** Splits converted rich text at line breaks into non-empty lines; optionally turns delimiter lines into flashcards. */
-export function splitLines(richText: RichTextInterface, flashcards: boolean): PasteLine[] {
+// {{answer}}, {{c1::answer}} or {{c1::answer::hint}} (Anki style; equal numbers in one line form one card).
+const CLOZE = /\{\{(?:c(\d+)::)?([^{}]+?)\}\}/g;
+const randomId = () => `rr${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+
+/** Turns {{…}} markup into RemNote cloze runs (cId, optional cloze-hint), keeping the formatting of the answer. */
+export function applyClozes(runs: Run[], newId: () => string = randomId): { runs: Run[]; clozes: number } | undefined {
+  const text = plainOf(runs);
+  const groups = new Map<string, string>();
+  const out: Run[] = [];
+  let last = 0, clozes = 0;
+  for (const match of text.matchAll(CLOZE)) {
+    const [whole, group, inner] = match;
+    const start = match.index!;
+    const hintAt = group ? inner.indexOf('::') : -1;
+    const answer = hintAt >= 0 ? inner.slice(0, hintAt) : inner;
+    const hint = hintAt >= 0 ? inner.slice(hintAt + 2).trim() : '';
+    // An empty numbered cloze ({{c1::}}) must not become a cloze containing “c1::”.
+    if (!answer.trim() || !group && /^c\d+::/.test(inner)) continue;
+    const answerStart = start + 2 + (group ? `c${group}::`.length : 0);
+    let id = group ? groups.get(group) : undefined;
+    if (!id) { id = newId(); clozes++; if (group) groups.set(group, id); }
+    out.push(...slice(runs, last, start));
+    out.push(...slice(runs, answerStart, answerStart + answer.length).map(run => ({ ...run, cId: id, ...(hint ? { 'cloze-hint': hint } : {}) })));
+    last = start + whole.length;
+  }
+  if (!clozes) return undefined;
+  out.push(...slice(runs, last, text.length));
+  return { runs: out, clozes };
+}
+
+/**
+ * Splits converted rich text at line breaks into non-empty lines. With flashcards on, a line with {{…}} becomes a
+ * cloze card; otherwise its first >>, << or <> splits it into a front and back.
+ */
+export function splitLines(richText: RichTextInterface, flashcards: boolean, newId?: () => string): PasteLine[] {
   const lines: Run[][] = [[]];
   for (const run of toRuns(richText)) {
     run.text.replace(/\r\n?/g, '\n').split('\n').forEach((part, i) => {
@@ -62,8 +95,10 @@ export function splitLines(richText: RichTextInterface, flashcards: boolean): Pa
     const runs = trim(raw);
     if (!runs.length) continue;
     const text = plainOf(runs);
-    const card = flashcards ? findDelimiter(text) : undefined;
-    if (card) {
+    const cloze = flashcards ? applyClozes(runs, newId) : undefined;
+    const card = flashcards && !cloze ? findDelimiter(text) : undefined;
+    if (cloze) result.push({ front: fromRuns(cloze.runs), clozes: cloze.clozes, text });
+    else if (card) {
       result.push({ front: fromRuns(trim(slice(runs, 0, card.index))), back: fromRuns(trim(slice(runs, card.index + 2, text.length))),
         direction: card.direction, text });
     } else result.push({ front: fromRuns(runs), text });

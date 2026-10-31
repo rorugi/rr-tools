@@ -54,7 +54,7 @@ export async function insertLines(plugin: Host, destination: LineDestination, li
       && (!line.back || await plain(plugin, saved.backText) === await plain(plugin, line.back));
     if (!ok) throw failed(i + 1, 'RemNote did not save a pasted line.');
   }
-  return { rems: written.length, cards: lines.filter(line => line.back).length, reused: !!reuse };
+  return { rems: written.length, cards: lines.filter(line => line.back || line.clozes).length, reused: !!reuse };
 }
 
 export function describeLines(result: LinesResult) {

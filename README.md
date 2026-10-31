@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.17:** Pasted lines with `{{…}}` become cloze flashcards, including `{{c1::…}}` groups and hints.
 - **0.4.16:** Paste lines as separate Rems, turn >>, << and <> lines into flashcards, remembered paste options, a prefilled paste box, and **Multi-Paste** in the document menu.
 - **0.4.15:** **Add to practice set…** appends the selection to an existing practice set.
 - **0.4.14:** **Save as practice set…** keeps a selection as a named RemNote document you can practice anytime.
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.10:** Popup practice for plugins running in restricted mode (replaced in 0.4.11).
 - **0.4.9:** Added the knowledge-base permission needed for selected-card practice.
 - **0.4.8:** **Practice Selected Flashcards** in the document's **…** menu.
-- **0.4.7:** New **Practice Selected Flashcards** command.
 
 ## Getting started
 
@@ -46,9 +46,17 @@ Your choices (colors, line and flashcard options, table headers) are remembered 
 ### Lines and flashcards
 
 - **Split lines into separate Rems:** each line becomes its own Rem, directly below the Rem with the caret. If that Rem is empty, it receives the first line. A single line is still inserted at the caret.
-- **Create flashcards from >> << <>:** a line such as `perro >> dog` becomes a flashcard with the text before the arrow on the front and the text after it on the back: `>>` forward, `<<` backward, `<>` two-way. Colors and formatting are kept on both sides. The preview marks flashcards with →, ←, or ↔.
+- **Create flashcards from >> << <> {{ }}:** a line such as `perro >> dog` becomes a flashcard with the text before the arrow on the front and the text after it on the back: `>>` forward, `<<` backward, `<>` two-way. Colors and formatting are kept on both sides. The preview marks flashcards with →, ←, or ↔.
 
 Only the first arrow in a line is used. `>>>` (RemNote's multi-line cards) and lines with an empty side stay ordinary text.
+
+The same option turns `{{…}}` into cloze deletions, for example `Die Hauptstadt von {{Österreich}} ist {{Wien}}.`:
+
+- `{{answer}}` creates one card per cloze.
+- `{{c1::answer}}` uses Anki-style numbers: clozes with the same number in a line are hidden together on one card.
+- `{{c1::answer::hint}}` adds a hint shown while the answer is hidden.
+
+Clozes keep their colors and formatting and are highlighted in the preview. A line with clozes is not split at `>>`, `<<`, or `<>`.
 
 ### Multi-Paste
 

@@ -30,7 +30,7 @@ export function ToolStyles() {
 .rr-paste-box:focus{outline:2px solid var(--rr-accent);outline-offset:-2px}
 .rr-paste-box[data-empty=true]::before{content:'Paste copied text here';color:var(--rr-muted);pointer-events:none}
 .rr-paste-table{border-collapse:collapse;white-space:pre-wrap;min-width:100%;margin:0 0 8px}.rr-paste-table td,.rr-paste-table th{border:1px solid var(--rr-border);padding:6px 10px;vertical-align:top;text-align:left;min-width:100px}.rr-paste-table th{background:var(--rr-hover)}
-.rr-lines{margin:0;padding-left:28px;white-space:pre-wrap}.rr-lines li{margin:0 0 2px}.rr-card-arrow{color:var(--rr-accent);font-weight:600}
+.rr-lines{margin:0;padding-left:28px;white-space:pre-wrap}.rr-lines li{margin:0 0 2px}.rr-card-arrow{color:var(--rr-accent);font-weight:600}.rr-cloze{background:color-mix(in srgb,var(--rr-accent) 18%,transparent);border-bottom:1px dashed var(--rr-accent);border-radius:3px;padding:0 2px}
 .rr-paste-error{font-size:13px;max-height:80px;overflow:auto;overflow-wrap:anywhere;margin-bottom:0!important}
 `}</style>;
 }

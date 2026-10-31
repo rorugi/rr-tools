@@ -15,7 +15,8 @@ function RichRuns({value}: {value: import('@remnote/plugin-sdk').RichTextInterfa
           const r = run as RichTextElementTextInterface;
           return <span key={i} style={{ color: typeof r.tc === 'number' ? PALETTE.find(p => p.id === r.tc)?.hex : r.tc,
             fontWeight: r.b ? 'bold' : undefined, fontStyle: r.l ? 'italic' : undefined,
-            textDecoration: r.u ? 'underline' : undefined, fontFamily: r.code ? 'monospace' : undefined }}>{r.text}</span>;
+            textDecoration: r.u ? 'underline' : undefined, fontFamily: r.code ? 'monospace' : undefined }}
+            className={r.cId ? 'rr-cloze' : undefined} title={r.cId ? `Cloze${r['cloze-hint'] ? ` · hint: ${r['cloze-hint']}` : ''}` : undefined}>{r.text}</span>;
         })}</>;
 }
 
@@ -75,7 +76,7 @@ function Paste() {
     try { return { value: linesFor(converted.value), error: '' }; }
     catch (e) { return { value: undefined, error: e instanceof Error ? e.message : String(e) }; }
   }, [converted, split, flashcards, toDocument]);
-  const cards = lines.value?.filter(line => line.back).length ?? 0;
+  const cards = lines.value?.filter(line => line.back || line.clozes).length ?? 0;
   const problem = converted.error || lines.error;
   const paste = async () => {
     if (lock.current || attempted || !context?.jobId) return;
@@ -117,7 +118,7 @@ function Paste() {
       </div>}
       {!converted.value?.table && <div className="rr-table-options" role="group" aria-label="Line options">
         <label><input type="checkbox" checked={split} disabled={busy || attempted} onChange={event => update({ splitLines: event.target.checked })} /> Split lines into separate Rems</label>
-        <label title="Lines with >>, << or <> become forward, backward or two-way flashcards"><input type="checkbox" checked={flashcards} disabled={busy || attempted || !split} onChange={event => update({ flashcards: event.target.checked })} /> Create flashcards from &gt;&gt; &lt;&lt; &lt;&gt;</label>
+        <label title="Lines with >>, << or <> become forward, backward or two-way flashcards; {{…}} becomes a cloze"><input type="checkbox" checked={flashcards} disabled={busy || attempted || !split} onChange={event => update({ flashcards: event.target.checked })} /> Create flashcards from &gt;&gt; &lt;&lt; &lt;&gt; {'{{ }}'}</label>
       </div>}
       <div ref={box} className="rr-paste-box" role="textbox" aria-label="Paste copied text here" aria-multiline="true"
         aria-readonly="true" aria-disabled={busy || attempted} tabIndex={0} contentEditable suppressContentEditableWarning
@@ -164,7 +165,7 @@ function Paste() {
         <button type="button" className="rn-button rr-primary" aria-describedby={setupError || error || problem ? 'rr-paste-error' : undefined} disabled={busy || attempted || !context?.jobId} onClick={paste}>{busy ? 'Pasting…' : 'Paste'}</button>
         <button type="button" className="rn-button" disabled={busy} onClick={() => plugin.widget.closePopup(true)}>{attempted ? 'Close' : 'Cancel'}</button>
       </div>
-      <div className="rr-version">RR Tools 0.4.16</div>
+      <div className="rr-version">RR Tools 0.4.17</div>
     </footer>
   </main>;
 }
