@@ -4,6 +4,7 @@ import { connectPractice, savePractice, startPractice, type PracticeContext, typ
 import { PRACTICE_DOC_TITLE, PRACTICE_SET_NAME_MAX, PRACTICE_SETS_TITLE, type PracticeSetResult } from '../native-practice';
 import { errorMessage } from '../directions';
 import { ToolStyles } from '../ui';
+import { VERSION, staleIndexMessage } from '../version';
 
 /** Setup only: practice itself always runs in RemNote's own flashcard screen, never in this popup. */
 export function PracticeSelected() {
@@ -24,7 +25,10 @@ export function PracticeSelected() {
   useEffect(() => {
     let alive = true;
     const connection = connectPractice(plugin);
-    connection.result.then(value => { if (alive) setSelection(value); })
+    connection.result.then(value => {
+      if (!alive) return;
+      if (value.version !== VERSION) setError(staleIndexMessage(value.version)); else setSelection(value);
+    })
       .catch(reason => { if (alive) setError(errorMessage(reason)); });
     return () => { alive = false; connection.cancel(); };
   }, [plugin]);
@@ -124,7 +128,7 @@ export function PracticeSelected() {
       </button>}
       {!attempted && <button type="button" className="rn-button" disabled={!ready} onClick={() => void start('modes')}>Other practice modes…</button>}
       <button type="button" className="rn-button" disabled={busy} onClick={() => void plugin.widget.closePopup(false)}>Close</button>
-    </div><div className="rr-version">RR Tools 0.4.19</div></footer>
+    </div><div className="rr-version">RR Tools {VERSION}</div></footer>
   </main>;
 }
 renderWidget(PracticeSelected);

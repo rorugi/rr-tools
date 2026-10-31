@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ReactRNPlugin } from '@remnote/plugin-sdk';
+import { VERSION } from './version';
 import { createPasteService, PASTE_REQUEST, PASTE_RESPONSE, requestPaste } from './insert';
 
 function setup() {
@@ -101,7 +102,7 @@ it('connects to the captured destination without requiring popup context or read
   plugin.focus.getFocusedRem.mockClear();
   const message={message:{type:'rr-tools/paste/connect',connectionId:'client-1'}};
   await service.handle(message);await service.handle(message);
-  expect(plugin.messaging.broadcast).toHaveBeenCalledWith({type:'rr-tools/paste/connected',connectionId:'client-1',jobId:plugin.widget.openPopup.mock.calls[0][1].jobId,supportsTables:true,supportsLines:true,target:'caret',destinationName:undefined,error:undefined});
+  expect(plugin.messaging.broadcast).toHaveBeenCalledWith({type:'rr-tools/paste/connected',connectionId:'client-1',jobId:plugin.widget.openPopup.mock.calls[0][1].jobId,supportsTables:true,supportsLines:true,target:'caret',destinationName:undefined,version:VERSION,error:undefined});
   expect(plugin.focus.getFocusedRem).not.toHaveBeenCalled();
   expect(plugin.editor.insertRichText).not.toHaveBeenCalled();
   await service.handle({message:{type:'rr-tools/paste/connect',connectionId:'another-popup'}});
@@ -122,6 +123,7 @@ function withRems(plugin: ReturnType<typeof setup>['plugin'], editorText: unknow
     const rem: R & Record<string, unknown> = { _id: id, parent, text,
       setText: async (value: unknown[]) => { rem.text = value; }, setBackText: async (value: unknown[]) => { rem.backText = value; },
       setPracticeDirection: async (value: string) => { rem.direction = value; },
+      getFontSize: async () => undefined,
       setParent: async (value: string | null, position: number) => { rem.parent = value; rem.position = position; },
       positionAmongstSiblings: async () => 0, getChildrenRem: async () => [...rems.values()].filter(child => child.parent === id) };
     rems.set(id, rem); return rem;

@@ -7,13 +7,14 @@ const state = vi.hoisted(() => ({ plugin: { widget: { closePopup: vi.fn() } }, c
 vi.mock('@remnote/plugin-sdk', () => ({ renderWidget: vi.fn(), usePlugin: () => state.plugin, Queue: (props: unknown) => { state.queue(props); return null; } }));
 vi.mock('../practice', () => ({ connectPractice: state.connect, startPractice: state.start, savePractice: state.save }));
 import { PracticeSelected } from './practice';
+import { VERSION } from '../version';
 let root: HTMLDivElement;
 const buttons = () => Array.from(root.querySelectorAll('button'));
 const button = (name: string) => buttons().find(b => b.textContent === name)!;
 beforeEach(() => {
   vi.clearAllMocks();
   root = document.createElement('div'); document.body.appendChild(root);
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f', 'b-b'], remIds: ['a', 'b'], errors: [], jobId: 'job', schedule: { due: 1, fresh: 0, later: 1 } }), cancel: state.cancel });
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f', 'b-b'], remIds: ['a', 'b'], errors: [], jobId: 'job', version: VERSION, schedule: { due: 1, fresh: 0, later: 1 } }), cancel: state.cancel });
   state.start.mockResolvedValue(undefined);
 });
 afterEach(() => { ReactDOM.unmountComponentAtNode(root); root.remove(); });
@@ -32,7 +33,7 @@ it('starts the native flashcard screen once for the captured job and never embed
   expect(state.cancel).toHaveBeenCalledTimes(1);
 });
 it('says when nothing is due and points to Practice All', async () => {
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 1, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: [], jobId: 'job', schedule: { due: 0, fresh: 0, later: 1 } }), cancel: state.cancel });
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 1, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: [], jobId: 'job', version: VERSION, schedule: { due: 0, fresh: 0, later: 1 } }), cancel: state.cancel });
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
   expect(root.textContent).toContain('0 due now · 0 new · 1 not due yet');
   expect(root.textContent).toContain('None of the selected cards is due');
@@ -70,7 +71,7 @@ it('keeps the name and shows save errors so the user can retry', async () => {
   expect(root.textContent).toContain('Saved “Retry”');
 });
 it('offers Add to practice set only when sets exist, and adds to the chosen set', async () => {
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f', 'b-b'], remIds: ['a', 'b'], errors: [], jobId: 'job',
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f', 'b-b'], remIds: ['a', 'b'], errors: [], jobId: 'job', version: VERSION,
     schedule: { due: 1, fresh: 0, later: 1 }, sets: [{ _id: 'exam', name: 'Exam' }, { _id: 'hard', name: 'Hard cards' }] }), cancel: state.cancel });
   state.save.mockResolvedValue({ _id: 'hard', name: 'Hard cards', added: 1, already: 1 });
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
@@ -86,7 +87,7 @@ it('offers Add to practice set only when sets exist, and adds to the chosen set'
   expect(state.start).toHaveBeenCalledExactlyOnceWith(state.plugin, 'job', 'set');
 });
 it('says when every selected Rem is already in the set', async () => {
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 1, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: [], jobId: 'job', sets: [{ _id: 'exam', name: 'Exam' }] }), cancel: state.cancel });
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 1, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: [], jobId: 'job', version: VERSION, sets: [{ _id: 'exam', name: 'Exam' }] }), cancel: state.cancel });
   state.save.mockResolvedValue({ _id: 'exam', name: 'Exam', added: 0, already: 1 });
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
   act(() => { Simulate.click(button('Add to practice set…')); });
@@ -94,7 +95,7 @@ it('says when every selected Rem is already in the set', async () => {
   expect(root.textContent).toContain('All selected Rems are already in “Exam”.');
 });
 it('blocks empty selections and keeps Close available', async () => {
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 2, cardIds: [], remIds: [], errors: [], jobId: 'job' }), cancel: state.cancel });
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 2, cardIds: [], remIds: [], errors: [], jobId: 'job', version: VERSION }), cancel: state.cancel });
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
   expect(root.textContent).toContain('No enabled flashcards');
   expect(button('Start practice').disabled).toBe(true);
@@ -103,7 +104,7 @@ it('blocks empty selections and keeps Close available', async () => {
   expect(state.start).not.toHaveBeenCalled();
 });
 it('shows partial errors as text and requires an explicit start', async () => {
-  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: ['Rem b: <script>denied</script>'], jobId: 'job' }), cancel: state.cancel });
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 2, skipped: 0, cardIds: ['a-f'], remIds: ['a'], errors: ['Rem b: <script>denied</script>'], jobId: 'job', version: VERSION }), cancel: state.cancel });
   await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
   expect(root.querySelector('[role="alert"]')!.textContent).toContain('Rem b: <script>denied</script>');
   expect(root.querySelector('script')).toBeNull();
@@ -118,4 +119,12 @@ it('keeps launch errors visible without closing the popup', async () => {
   expect(state.plugin.widget.closePopup).not.toHaveBeenCalled();
   await act(async () => { Simulate.click(button('Close')); });
   expect(state.plugin.widget.closePopup).toHaveBeenCalledWith(false);
+});
+
+it('refuses a stale index version', async () => {
+  state.connect.mockReturnValue({ result: Promise.resolve({ selected: 1, skipped: 0, cardIds: ['a'], remIds: ['a'], errors: [], jobId: 'job' }), cancel: state.cancel });
+  await act(async () => { ReactDOM.render(<PracticeSelected />, root); });
+  expect(root.querySelector('[role="alert"]')!.textContent).toContain('older RR Tools version');
+  expect(button('Start practice').disabled).toBe(true);
+  expect(state.start).not.toHaveBeenCalled();
 });

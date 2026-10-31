@@ -7,6 +7,7 @@ import { connectPaste, requestPaste, type PasteContext } from '../insert';
 import { splitLines, type PasteLine } from '../lines';
 import { DEFAULT_PASTE_SETTINGS, PASTE_SETTINGS_KEY, readPasteSettings, type PasteSettings } from '../paste-settings';
 import { ToolStyles } from '../ui';
+import { VERSION, staleIndexMessage } from '../version';
 
 
 function RichRuns({value}: {value: import('@remnote/plugin-sdk').RichTextInterface}) {
@@ -42,6 +43,8 @@ function Paste() {
     box.current?.focus();
     connectPaste(plugin, AppEvents.MessageBroadcast, controller.signal).then(value => {
       if (!alive.current) return;
+      // A stale index would silently drop features it does not know (headings, tags, …).
+      if (value.version !== VERSION) { setSetupError(staleIndexMessage(value.version)); return; }
       setContext(value);
     }).catch(e => { if (alive.current) setSetupError(e instanceof Error ? e.message : String(e)); });
     // Remembered options; a storage failure only means the defaults are used.
@@ -171,7 +174,7 @@ function Paste() {
         <button type="button" className="rn-button rr-primary" aria-describedby={setupError || error || problem ? 'rr-paste-error' : undefined} disabled={busy || attempted || !context?.jobId} onClick={paste}>{busy ? 'Pasting…' : 'Paste'}</button>
         <button type="button" className="rn-button" disabled={busy} onClick={() => plugin.widget.closePopup(true)}>{attempted ? 'Close' : 'Cancel'}</button>
       </div>
-      <div className="rr-version">RR Tools 0.4.19</div>
+      <div className="rr-version">RR Tools {VERSION}</div>
     </footer>
   </main>;
 }

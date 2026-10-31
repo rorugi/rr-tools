@@ -9,11 +9,12 @@ const state = vi.hoisted(() => ({ component: undefined as React.ComponentType | 
     storage:{getSynced:vi.fn(async(_key:string):Promise<unknown>=>undefined),setSynced:vi.fn(async(_key:string,_value:unknown)=>{})} } }));
 vi.mock('@remnote/plugin-sdk', () => ({ RemType:{PORTAL:6},AppEvents:{MessageBroadcast:'broadcast'}, WidgetLocation:{Popup:'Popup'}, renderWidget:(component:React.ComponentType)=>{state.component=component;}, usePlugin:()=>state.plugin }));
 import './paste';
+import { VERSION } from '../version';
 let root:HTMLDivElement;
 async function reply(value: unknown) {
   const message = value as { type: string; connectionId?: string };
   state.listener?.({message: message.type === 'rr-tools/paste/connect'
-    ? {type:'rr-tools/paste/connected',connectionId:message.connectionId,jobId:'test-job'}
+    ? {type:'rr-tools/paste/connected',connectionId:message.connectionId,jobId:'test-job',version:VERSION}
     : {type:'rr-tools/paste/response',jobId:'test-job'}});
 }
 const requests=()=>state.plugin.messaging.broadcast.mock.calls.filter(([message])=>(message as {type:string}).type==='rr-tools/paste/request');
@@ -79,7 +80,7 @@ it('enables Paste after a delayed connection without losing already pasted text'
   let connectionId='';
   state.plugin.messaging.broadcast.mockImplementation(async(message)=>{connectionId=(message as {connectionId:string}).connectionId;});
   await mount();copy();expect(pasteButton().disabled).toBe(true);
-  await act(async()=>{state.listener?.({message:{type:'rr-tools/paste/connected',connectionId,jobId:'test-job'}});});
+  await act(async()=>{state.listener?.({message:{type:'rr-tools/paste/connected',connectionId,jobId:'test-job',version:VERSION}});});
   expect(pasteButton().disabled).toBe(false);
   expect(root.querySelector('[role="textbox"]')?.textContent).toBe('hello');
   expect(root.querySelector('[role="alert"]')).toBeNull();
@@ -98,7 +99,7 @@ it('refuses to flatten a table through an old running index without table suppor
 it('shows header options only for tables, remembers them across pastes, and sends exactly the chosen headers',async()=>{
  state.plugin.messaging.broadcast.mockImplementation(async(message)=>{
   const m=message as {type:string;connectionId:string};
-  if(m.type==='rr-tools/paste/connect')state.listener?.({message:{type:'rr-tools/paste/connected',connectionId:m.connectionId,jobId:'test-job',supportsTables:true}});
+  if(m.type==='rr-tools/paste/connect')state.listener?.({message:{type:'rr-tools/paste/connected',connectionId:m.connectionId,jobId:'test-job',supportsTables:true,version:VERSION}});
   else await reply(message);
  });
  await mount();expect(root.querySelectorAll('[aria-label="Table headers"] input')).toHaveLength(0);
@@ -126,7 +127,7 @@ it('prefills a clipboard table for header selection without inserting',async()=>
 
 const connectWith=(extra:Record<string,unknown>)=>state.plugin.messaging.broadcast.mockImplementation(async(message)=>{
   const m=message as {type:string;connectionId:string};
-  if(m.type==='rr-tools/paste/connect')state.listener?.({message:{type:'rr-tools/paste/connected',connectionId:m.connectionId,jobId:'test-job',supportsTables:true,supportsLines:true,...extra}});
+  if(m.type==='rr-tools/paste/connect')state.listener?.({message:{type:'rr-tools/paste/connected',connectionId:m.connectionId,jobId:'test-job',supportsTables:true,supportsLines:true,version:VERSION,...extra}});
   else await reply(message);
 });
 const copyText=(html:string,plain='')=>act(()=>{Simulate.paste(root.querySelector('[role="textbox"]')!,{clipboardData:{getData:(type:string)=>type==='text/html'?html:plain} as DataTransfer});});
@@ -224,4 +225,17 @@ it('previews ##tags as chips, counts them, and sends a single tagged line as its
   expect(root.textContent).toContain('1 Rem(s) · 1 tagged');
   await act(async()=>{Simulate.click(pasteButton());});
   expect((requests()[0][0] as {lines:unknown[]}).lines).toEqual([{front:['perro'],tags:['Tiere'],text:'perro'}]);
+});
+
+it('blocks pasting when RemNote still runs an older index, instead of silently dropping headings and tags',async()=>{
+  connectWith({version:'0.4.19'});
+  await mount();
+  copyText('<h1>Kapitel</h1>');
+  expect(root.querySelector('[role="alert"]')!.textContent).toContain('still running RR Tools 0.4.19');
+  expect(root.querySelector('[role="alert"]')!.textContent).toContain('Disable and re-enable RR Tools');
+  expect(pasteButton().disabled).toBe(true);
+  connectWith({version:undefined});
+  ReactDOM.unmountComponentAtNode(root);root.remove();
+  await mount();
+  expect(root.querySelector('[role="alert"]')!.textContent).toContain('an older RR Tools version');
 });

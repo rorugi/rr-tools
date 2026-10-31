@@ -3,6 +3,7 @@ import type { TablePaste } from './convert-table';
 import { insertColoredTable } from './table-insert';
 import type { PasteLine } from './lines';
 import { describeLines, insertLines } from './lines-insert';
+import { VERSION } from './version';
 
 export const PASTE_REQUEST = 'rr-tools/paste/request';
 export const PASTE_RESPONSE = 'rr-tools/paste/response';
@@ -10,8 +11,8 @@ export const PASTE_CONNECT = 'rr-tools/paste/connect';
 export const PASTE_CONNECTED = 'rr-tools/paste/connected';
 /** target: caret = the Rem with the caret (Paste with colors); document = the end of a document (Multi-Paste). */
 export type PasteTarget = 'caret' | 'document';
-export type PasteContext = { jobId: string; supportsTables?: boolean; supportsLines?: boolean; target?: PasteTarget; destinationName?: string };
-type Message = { type?: string; jobId?: string; connectionId?: string; richText?: RichTextInterface; table?: TablePaste; lines?: PasteLine[]; supportsTables?: boolean; supportsLines?: boolean; target?: PasteTarget; destinationName?: string; error?: string };
+export type PasteContext = { jobId: string; supportsTables?: boolean; supportsLines?: boolean; target?: PasteTarget; destinationName?: string; version?: string };
+type Message = { type?: string; jobId?: string; connectionId?: string; richText?: RichTextInterface; table?: TablePaste; lines?: PasteLine[]; supportsTables?: boolean; supportsLines?: boolean; target?: PasteTarget; destinationName?: string; version?: string; error?: string };
 const messageOf = (event: unknown): Message => {
   if (!event || typeof event !== 'object') return {};
   const value = 'message' in event ? event.message : event;
@@ -67,7 +68,7 @@ export function createPasteService(plugin: ReactRNPlugin) {
         else if (current.work || current.connectionId && current.connectionId !== message.connectionId) error = 'This paste destination belongs to an earlier popup. Close and reopen Paste with colors from the destination Rem.';
         else current.connectionId = message.connectionId;
         await plugin.messaging.broadcast({ type: PASTE_CONNECTED, connectionId: message.connectionId, jobId: error ? undefined : current!.jobId, supportsTables: true, supportsLines: true,
-          target: error ? undefined : current!.target, destinationName: error ? undefined : current!.name, error });
+          target: error ? undefined : current!.target, destinationName: error ? undefined : current!.name, version: VERSION, error });
         return;
       }
       if (message.type !== PASTE_REQUEST) return;
@@ -149,7 +150,7 @@ export function connectPaste(plugin: RNPlugin, eventId: string, signal?: AbortSi
       if (message.type !== PASTE_CONNECTED || message.connectionId !== connectionId) return;
       if (message.error) finish(undefined, message.error);
       else if (typeof message.jobId === 'string' && message.jobId) finish({ jobId: message.jobId, supportsTables: message.supportsTables === true, supportsLines: message.supportsLines === true,
-        target: message.target === 'document' ? 'document' : 'caret', destinationName: message.destinationName });
+        target: message.target === 'document' ? 'document' : 'caret', destinationName: message.destinationName, version: message.version });
       else finish(undefined, 'The running RR Tools command returned no destination. Disable and re-enable RR Tools, then reopen Paste with colors.');
     };
     const timer = setTimeout(() => finish(undefined, 'Paste is unavailable because the popup could not connect to the running RR Tools command. Restart your local server if used, disable and re-enable RR Tools, then reopen Paste with colors. No Rem was changed.'), 4_000);

@@ -8,6 +8,7 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 
 <!-- Keep the latest 10 version updates, newest first, with one concise bullet per version. -->
 
+- **0.4.20:** Popups detect when RemNote still runs an older RR Tools in the background and ask you to re-enable the plugin; Multi-Paste fills a document's empty last bullet; headings are verified after pasting.
 - **0.4.19:** `##tag` in a pasted line tags the new Rem (existing tags are reused, missing ones created).
 - **0.4.18:** Word headings (H1–H3) and Markdown `#`, `##`, `###` lines become RemNote headings when pasting lines.
 - **0.4.17:** Pasted lines with `{{…}}` become cloze flashcards, including `{{c1::…}}` groups and hints.
@@ -17,7 +18,6 @@ RR Tools brings everyday editing and study utilities into RemNote: paste colored
 - **0.4.13:** The practice popup shows how many selected cards are due now, new, and not due yet.
 - **0.4.12:** Practice references are removed after the session, so no reference count stays on your Rems.
 - **0.4.11:** **Practice Selected Flashcards** runs in RemNote's own flashcard screen instead of a popup.
-- **0.4.10:** Popup practice for plugins running in restricted mode (replaced in 0.4.11).
 
 ## Getting started
 
@@ -78,7 +78,7 @@ With **Split lines into separate Rems** (and always with Multi-Paste), `##tag` a
 
 ### Multi-Paste
 
-Choose **Multi-Paste** from the document's **…** menu (below **Select All Rem**) or run **RR Tools: Multi-Paste…**. It works like Paste with colors, but the pasted lines are added as new Rems at the end of the current document, so you don't need to place the caret first. Tables are added as a **Pasted table** child of the document.
+Choose **Multi-Paste** from the document's **…** menu (below **Select All Rem**) or run **RR Tools: Multi-Paste…**. It works like Paste with colors, but the pasted lines are added as new Rems at the end of the current document, so you don't need to place the caret first. An empty last bullet in the document is filled with the first line. Tables are added as a **Pasted table** child of the document.
 
 ### Color modes
 
@@ -142,6 +142,10 @@ Only selected flashcards matching **From** are changed. Ordinary notes, other di
 Run **RR Tool Select All**, or choose **Select All Rem** from the document's **…** menu.
 
 All Rems in the document body are selected, including collapsed descendants, which are expanded. The document title, references, and portals to other documents are not included.
+
+## After updating
+
+After uploading a new version, disable and re-enable **RR Tools** (or reload RemNote). Otherwise RemNote may keep running the previous version in the background while the popups are already new. The popups detect this and ask you to re-enable the plugin before anything is changed.
 
 ## Privacy and permissions
 

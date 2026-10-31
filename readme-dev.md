@@ -31,7 +31,7 @@ The build validates `public/manifest.json` (including the `KnowledgeBaseInfo / R
 
 ## Releasing
 
-1. Bump the version in `package.json`, `package-lock.json`, `public/manifest.json`, and the version label in the widgets (`src/widgets/*.tsx`).
+1. Bump the version in `package.json`, `package-lock.json`, `public/manifest.json`, and `src/version.ts` (a test checks they match). The index sends `VERSION` in every popup handshake; a popup refuses to work with a different index version, because a stale index silently ignores newer fields.
 2. Add a bullet to **What's new** in `README.md` (keep the latest 10).
 3. Run `npm run check`, `npm test`, and `npm run build`.
 4. Create a GitHub release `vX.Y.Z` and attach `PluginZip.zip`.

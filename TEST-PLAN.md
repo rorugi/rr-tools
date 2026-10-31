@@ -1,4 +1,4 @@
-# RR Tools 0.4.19 practical test plan
+# RR Tools 0.4.20 practical test plan
 
 Run these checks yourself in scratch Rems. They are acceptance checks, not claimed live passes. Record RemNote version, OS, Word/browser version and color mode. Automated evidence is in VERIFICATION.md.
 
@@ -21,6 +21,9 @@ Practice must run in RemNote's own flashcard screen, never inside the popup. The
 - On read failures, show the failing Rem IDs and actual errors. Starting the remaining cards must require an explicit click. Disable the plugin while opening to check the connection error.
 
 ## Lines, flashcards and Multi-Paste (user-run)
+
+- After uploading the new ZIP without re-enabling RR Tools, open Paste with colors: if RemNote still runs the old index, the popup must say so and keep Paste disabled. After disabling and re-enabling RR Tools, it must work. Then repeat the heading and tag checks below: the toast must end with “… tagged.” when tags were pasted.
+- Multi-Paste into a document whose last bullet is empty: the first line must fill it, no empty bullet may remain above the pasted lines.
 
 - Copy several colored lines from Word, including `perro >> dog`, `casa <> house`, `gatos << cats`, `list >>>` and an empty line. Place the caret in an empty Rem, run Paste with colors, enable both line options. The box must be prefilled (or accept Ctrl+V); the preview must show one numbered line per Rem with →, ↔, ← and no line for the empty one.
 - Paste: the empty Rem receives the first line, the others follow as siblings in order. The three arrow lines must be real flashcards with the right direction (check in the Card table), colors kept on both sides; `list >>>` stays plain text.

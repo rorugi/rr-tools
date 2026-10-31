@@ -1,5 +1,6 @@
 import { AppEvents, type ReactRNPlugin, type RNPlugin } from '@remnote/plugin-sdk';
 import { errorMessage, selectedIds } from './directions';
+import { VERSION } from './version';
 import { addToPracticeSet, listPracticeSets, openNativePractice, PRACTICE_DOC_TITLE, PRACTICE_SETS_TITLE, savePracticeSet, type PracticeSetInfo, type PracticeSetResult, type PracticeTarget } from './native-practice';
 
 export const PRACTICE_WIDGET = 'practice-selected';
@@ -24,7 +25,7 @@ export function scheduleOf(card: ScheduledCard, now: number): keyof PracticeSche
   return card.nextRepetitionTime === undefined || card.nextRepetitionTime <= now ? 'due' : 'later';
 }
 /** sets: existing practice sets the selection can be added to. */
-export type PracticeContext = PracticeSelection & { jobId: string; sets?: PracticeSetInfo[] };
+export type PracticeContext = PracticeSelection & { jobId: string; sets?: PracticeSetInfo[]; version?: string };
 
 /** Read only the explicitly selected Rems. Never gather a document or subtree queue. */
 export async function collectSelectedCards(plugin: Pick<ReactRNPlugin, 'rem'>, ids: string[], now = Date.now()): Promise<PracticeSelection> {
@@ -76,7 +77,7 @@ export function createPracticeService(plugin: ReactRNPlugin, cleanup?: { cancel(
         const kbId = (await plugin.kb.getCurrentKnowledgeBaseData())._id;
         // A broken practice-sets parent must not block practice; it only hides “Add to practice set…”.
         const sets = await listPracticeSets(plugin).catch(() => []);
-        const selection = { ...await collectSelectedCards(plugin, ids), jobId: crypto.randomUUID(), sets };
+        const selection = { ...await collectSelectedCards(plugin, ids), jobId: crypto.randomUUID(), sets, version: VERSION };
         current = { selection, kbId };
         try { await plugin.widget.openPopup(PRACTICE_WIDGET, {}, false); }
         catch (error) { current = undefined; throw error; }

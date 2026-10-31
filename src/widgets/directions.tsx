@@ -3,6 +3,7 @@ import { AppEvents, renderWidget, usePlugin, WidgetLocation } from '@remnote/plu
 import { DIRECTIONS, errorMessage, selectedIds, type Direction, type DirectionResult } from '../directions';
 import { requestDirectionChange, type DirectionContext } from '../direction-service';
 import { ToolStyles } from '../ui';
+import { VERSION, staleIndexMessage } from '../version';
 
 export function DirectionsPopup() {
   const plugin = usePlugin();
@@ -56,7 +57,7 @@ export function DirectionsPopup() {
     <p className="rr-muted">Only selected flashcards matching From will change. Unselected children stay unchanged.</p>
     {!!context?.accessErrors?.length && !result && <div role="alert">
       <p>The main plugin could not read {context.accessErrors.length} selected Rem(s), before opening this popup.</p>
-      <p>Install RR Tools 0.4.19 as a new plugin (ID: rr-tools) and approve whole-knowledge-base access. Disable the old RR Copy Paste installation to avoid duplicate commands. A hot reload does not update installed permissions.</p>
+      <p>Install RR Tools {VERSION} as a new plugin (ID: rr-tools) and approve whole-knowledge-base access. Disable the old RR Copy Paste installation to avoid duplicate commands. A hot reload does not update installed permissions.</p>
       <ul className="rr-details">{context.accessErrors.map((e) => <li key={e}>{e}</li>)}</ul>
     </div>}
     {busy && <p role="status" aria-live="polite">Changing flashcards… Results will appear here. Keep this popup open.</p>}
@@ -75,7 +76,7 @@ export function DirectionsPopup() {
       {(!attempted || busy) && <button key="apply" type="button" className="rn-button rr-primary" onClick={apply} disabled={busy || attempted || !context?.readable || !context?.jobId || !ids.length || from === to}>{busy ? 'Changing…' : 'Change selected flashcards'}</button>}
       <button key="close" type="button" className="rn-button" disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (!lock.current) void plugin.widget.closePopup(true); }}>{attempted ? 'Close' : 'Cancel'}</button>
     </div>
-    <div className="rr-version">RR Tools 0.4.19</div>
+    <div className="rr-version">RR Tools {VERSION}</div>
   </main>;
 }
 renderWidget(DirectionsPopup);

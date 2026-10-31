@@ -5,7 +5,7 @@ import { readPasteSettings, DEFAULT_PASTE_SETTINGS } from './paste-settings';
 
 type Fake = { _id: string; parent: string | null; position?: number; text: unknown[]; backText?: unknown[]; direction?: string;
   tags?: string[]; addTag: ReturnType<typeof vi.fn>; getTagRems: () => Promise<{ _id: string }[]>;
-  setText: ReturnType<typeof vi.fn>; setFontSize: ReturnType<typeof vi.fn>; heading?: string; setBackText: ReturnType<typeof vi.fn>; setPracticeDirection: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn>;
+  setText: ReturnType<typeof vi.fn>; setFontSize: ReturnType<typeof vi.fn>; getFontSize: () => Promise<string | undefined>; children?: string[]; heading?: string; setBackText: ReturnType<typeof vi.fn>; setPracticeDirection: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn>;
   positionAmongstSiblings: () => Promise<number | undefined>; getChildrenRem: () => Promise<Fake[]> };
 function setup() {
   const rems = new Map<string, Fake>();
@@ -14,6 +14,7 @@ function setup() {
     const rem: Fake = { _id: id, parent, text,
       setText: vi.fn(async (value: unknown[]) => { rem.text = value; }),
       setFontSize: vi.fn(async (value: string) => { rem.heading = value; }),
+      getFontSize: async () => rem.heading,
       addTag: vi.fn(async (value: string) => { rem.tags = [...rem.tags ?? [], value]; }),
       getTagRems: async () => (rem.tags ?? []).map(id => ({ _id: id })),
       setBackText: vi.fn(async (value: unknown[]) => { rem.backText = value; }),
@@ -51,7 +52,7 @@ it('fills an empty caret Rem with the first line instead of leaving it empty', a
 });
 it('appends to the end of a document for Multi-Paste', async () => {
   const { typed, rems, make } = setup();
-  make('doc'); make('c1', 'doc'); make('c2', 'doc');
+  make('doc'); make('c1', 'doc', ['x']); make('c2', 'doc', ['y']);
   await insertLines(typed, { kind: 'end', remId: 'doc' }, [line('one')]);
   expect(rems.get('new-1')).toMatchObject({ parent: 'doc', position: 2, text: ['one'] });
 });
@@ -121,4 +122,22 @@ it('reports a tag that was not saved', async () => {
   make('doc'); make('t', null, ['T']);
   plugin.rem.createRem.mockImplementation(async () => { const rem = make('x'); rem.addTag.mockResolvedValue(undefined); return rem; });
   await expect(insertLines(typed, { kind: 'end', remId: 'doc' }, [{ front: ['a'], tags: ['T'], text: 'a' }])).rejects.toThrow('did not save a pasted line');
+});
+
+it('fills the empty last bullet of a document for Multi-Paste, but not one with children', async () => {
+  const { typed, plugin, rems, make } = setup();
+  make('doc'); make('c1', 'doc', ['x']); make('empty', 'doc', []);
+  await expect(insertLines(typed, { kind: 'end', remId: 'doc' }, [line('one'), line('two')])).resolves.toMatchObject({ reused: true });
+  expect(rems.get('empty')!.text).toEqual(['one']);
+  expect(rems.get('new-1')).toMatchObject({ parent: 'doc', position: 2, text: ['two'] });
+  const other = setup();
+  other.make('doc'); const parent = other.make('p', 'doc', []); parent.children = ['kid'];
+  await expect(insertLines(other.typed, { kind: 'end', remId: 'doc' }, [line('one')])).resolves.toMatchObject({ reused: false });
+  expect(plugin).toBeTruthy();
+});
+it('reports a heading that RemNote did not apply', async () => {
+  const { typed, plugin, make } = setup();
+  make('doc');
+  plugin.rem.createRem.mockImplementation(async () => { const rem = make('h'); rem.setFontSize.mockResolvedValue(undefined); return rem; });
+  await expect(insertLines(typed, { kind: 'end', remId: 'doc' }, [{ front: ['Titel'], heading: 1, text: 'Titel' }])).rejects.toThrow('did not save a pasted line');
 });

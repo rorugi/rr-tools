@@ -22,7 +22,11 @@ export async function insertLines(plugin: Host, destination: LineDestination, li
   let reuse: PluginRem | undefined;
   if (destination.kind === 'end') {
     parent = anchor._id;
-    position = (await anchor.getChildrenRem()).length;
+    const children = await anchor.getChildrenRem();
+    position = children.length;
+    // Documents usually end with an empty bullet: fill it instead of leaving it above the pasted lines.
+    const last = children[children.length - 1];
+    if (last && !await plain(plugin, last.text) && !await plain(plugin, last.backText) && !(last.children?.length)) reuse = last;
   } else {
     parent = anchor.parent;
     const index = await anchor.positionAmongstSiblings();
@@ -73,7 +77,8 @@ export async function insertLines(plugin: Host, destination: LineDestination, li
     const saved = await plugin.rem.findOne(id);
     const ok = saved && await plain(plugin, saved.text) === await plain(plugin, line.front)
       && (!line.back || await plain(plugin, saved.backText) === await plain(plugin, line.back))
-      && (!line.tags?.length || await hasTags(saved, await Promise.all(line.tags.map(tagId))));
+      && (!line.tags?.length || await hasTags(saved, await Promise.all(line.tags.map(tagId))))
+      && (!line.heading || await saved.getFontSize() === `H${line.heading}`);
     if (!ok) throw failed(i + 1, 'RemNote did not save a pasted line.');
   }
   const tagged = lines.filter(line => line.tags?.length).length;

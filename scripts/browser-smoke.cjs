@@ -7,6 +7,7 @@ const widget = ['paste', 'practice-selected'].includes(process.env.RR_TEST_WIDGE
 const width = widget === 'paste' ? 620 : 560;
 const tableFixture = process.env.RR_TABLE_FIXTURE === '1';
 const linesFixture = process.env.RR_LINES_FIXTURE === '1';
+const version = process.env.RR_FAKE_INDEX_VERSION ?? require('../package.json').version;
 const noPasteIndex = process.env.RR_NO_PASTE_INDEX === '1';
 const { chromium } = require('playwright');
 global.self = global;
@@ -26,7 +27,7 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
   const file = path.join('dist',name);
   return route.fulfill({status:fs.existsSync(file)?200:404, contentType:name.endsWith('.js')?'application/javascript':name.endsWith('.json')?'application/json':'text/html',body:fs.existsSync(file)?fs.readFileSync(file):''});
  });
- await page.addInitScript(({AppEvents,native,legacy,width,widget,noPasteIndex}) => {
+ await page.addInitScript(({AppEvents,native,legacy,width,widget,noPasteIndex,version}) => {
   if(window !== window.top) return;
   window.calls = []; window.popupClosed = false;
   window.addEventListener('message', e => {
@@ -39,11 +40,11 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    if(data.methodName==='widget.getWidgetContext') response=widget === 'paste' ? {widgetInstanceId:1} : {widgetInstanceId:1,contextData:{remIds:['test-card'],jobId:'test-job',readable:1,accessErrors:[]}};
    if(!native && data.methodName==='widgetEvents.updateWidgetContainerDimension') document.querySelector('iframe').style.height=data.args.height+'px';
    if(!noPasteIndex && data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/paste/connect') {
-     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/paste/connected',connectionId:data.args.message.connectionId,jobId:'test-job',supportsTables:true,supportsLines:true}});
+     sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/paste/connected',connectionId:data.args.message.connectionId,jobId:'test-job',supportsTables:true,supportsLines:true,version}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/connect') {
      sendEvent(AppEvents.MessageBroadcast,{message:{type:'rr-tools/practice/connected',connectionId:data.args.message.connectionId,
-       selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job',schedule:{due:1,fresh:0,later:1},sets:[{_id:'exam',name:'Exam chapter 2'}]}}});
+       selection:{selected:2,skipped:0,cardIds:['selected-forward','selected-backward'],remIds:['selected-rem'],errors:[],jobId:'test-job',schedule:{due:1,fresh:0,later:1},sets:[{_id:'exam',name:'Exam chapter 2'}],version}}});
    }
    if(data.methodName==='messaging.broadcast' && data.args.message.type==='rr-tools/practice/save') {
      window.practiceSave=data.args.message;
@@ -63,7 +64,7 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
    if(data.methodName==='widget.closePopup') window.popupClosed=true;
    const reply={isIntendedForRemNoteAPIPlugin:true,messageId:data.messageId,response}; if(native) window.testPlugin._receive({data:reply}); else e.source.postMessage(reply,'*');
   });
- },{AppEvents,native,legacy,width,widget,noPasteIndex});
+ },{AppEvents,native,legacy,width,widget,noPasteIndex,version});
  await page.goto('https://rr-tools.test/host');
  if(native) await page.evaluate(async ({widget,width}) => {
 
@@ -113,6 +114,12 @@ const watchdog=setTimeout(()=>{console.error('Browser test timed out');process.e
  if(widget === 'paste') {
    const input = popup.getByRole('textbox',{name:'Paste copied text here'});
    await input.waitFor({state:'visible'});
+   if(process.env.RR_FAKE_INDEX_VERSION) {
+     await popup.getByRole('alert').filter({hasText:'Disable and re-enable RR Tools'}).waitFor();
+     assert.equal(await popup.getByRole('button',{name:'Paste',exact:true}).isDisabled(),true);
+     console.log('PASS stale index blocked',native?'native':'sandbox');
+     return;
+   }
    assert.equal(await popup.getByRole('alert').count(),0,'An empty box must not cause a conversion error: '+await popup.getByRole('alert').allTextContents());
    if(noPasteIndex) await popup.getByRole('alert').filter({hasText:'disable and re-enable RR Tools'}).waitFor();
    if(linesFixture) {
