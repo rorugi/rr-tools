@@ -41,6 +41,7 @@ export async function insertLines(plugin: Host, destination: LineDestination, li
       await rem.setParent(parent, position++);
     }
     await rem.setText(line.front);
+    if (line.heading) await rem.setFontSize(`H${line.heading}`);
     if (line.back) {
       await rem.setBackText(line.back);
       await rem.setPracticeDirection(line.direction ?? 'forward');

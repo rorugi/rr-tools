@@ -1,8 +1,10 @@
 import type { RichTextElementTextInterface, RichTextInterface } from '@remnote/plugin-sdk';
+import type { HeadingLevel } from './convert';
 
 export type CardDirection = 'forward' | 'backward' | 'both';
 /** One pasted line: a new Rem, optionally a flashcard with a back side and direction, or with cloze deletions. */
-export type PasteLine = { front: RichTextInterface; back?: RichTextInterface; direction?: CardDirection; clozes?: number; text: string };
+export type PasteLine = { front: RichTextInterface; back?: RichTextInterface; direction?: CardDirection; clozes?: number; heading?: HeadingLevel; text: string };
+export type SplitOptions = { newId?: () => string; headings?: Record<number, HeadingLevel> };
 export const MAX_LINES = 2000;
 
 // RemNote's own flashcard delimiters: >> forward, << backward, <> two-way.
@@ -78,11 +80,16 @@ export function applyClozes(runs: Run[], newId: () => string = randomId): { runs
   return { runs: out, clozes };
 }
 
+// Markdown headings: “# ”, “## ”, “### ” at the start of a line (a space is required, so #tag stays text).
+const MARKDOWN_HEADING = /^(#{1,3})[ \t]+(?=\S)/;
+
 /**
- * Splits converted rich text at line breaks into non-empty lines. With flashcards on, a line with {{…}} becomes a
- * cloze card; otherwise its first >>, << or <> splits it into a front and back.
+ * Splits converted rich text at line breaks into non-empty lines. Lines from <h1>–<h3> (options.headings) or
+ * starting with Markdown #, ##, ### become headings. With flashcards on, a line with {{…}} becomes a cloze card;
+ * otherwise its first >>, << or <> splits it into a front and back.
  */
-export function splitLines(richText: RichTextInterface, flashcards: boolean, newId?: () => string): PasteLine[] {
+export function splitLines(richText: RichTextInterface, flashcards: boolean, options: SplitOptions = {}): PasteLine[] {
+  const { newId, headings = {} } = options;
   const lines: Run[][] = [[]];
   for (const run of toRuns(richText)) {
     run.text.replace(/\r\n?/g, '\n').split('\n').forEach((part, i) => {
@@ -91,17 +98,24 @@ export function splitLines(richText: RichTextInterface, flashcards: boolean, new
     });
   }
   const result: PasteLine[] = [];
-  for (const raw of lines) {
-    const runs = trim(raw);
+  for (const [index, raw] of lines.entries()) {
+    let runs = trim(raw);
     if (!runs.length) continue;
+    let heading = headings[index];
+    const markdown = MARKDOWN_HEADING.exec(plainOf(runs));
+    if (markdown) {
+      heading = markdown[1].length as HeadingLevel;
+      runs = trim(slice(runs, markdown[0].length, plainOf(runs).length));
+    }
     const text = plainOf(runs);
+    const level = heading ? { heading } : {};
     const cloze = flashcards ? applyClozes(runs, newId) : undefined;
     const card = flashcards && !cloze ? findDelimiter(text) : undefined;
-    if (cloze) result.push({ front: fromRuns(cloze.runs), clozes: cloze.clozes, text });
+    if (cloze) result.push({ front: fromRuns(cloze.runs), clozes: cloze.clozes, ...level, text });
     else if (card) {
       result.push({ front: fromRuns(trim(slice(runs, 0, card.index))), back: fromRuns(trim(slice(runs, card.index + 2, text.length))),
-        direction: card.direction, text });
-    } else result.push({ front: fromRuns(runs), text });
+        direction: card.direction, ...level, text });
+    } else result.push({ front: fromRuns(runs), ...level, text });
   }
   if (result.length > MAX_LINES) throw new Error(`The text has ${result.length} lines. Paste at most ${MAX_LINES} lines at a time.`);
   return result;

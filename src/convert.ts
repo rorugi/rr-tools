@@ -14,7 +14,9 @@ export const PALETTE = [
   { id: 9, name: 'Pink', hex: '#ff80c0' },
 ];
 type Format = Omit<RichTextElementTextInterface, 'i' | 'text'>;
-export type Conversion = { richText: RichTextInterface; text: string; warnings: string[]; coloredRuns: number };
+export type HeadingLevel = 1 | 2 | 3;
+/** headings: line number (0-based, counted at every line break of `text`) → heading level from <h1>–<h3>. */
+export type Conversion = { richText: RichTextInterface; text: string; warnings: string[]; coloredRuns: number; headings?: Record<number, HeadingLevel> };
 
 export function colorValue(value: string, mode: ColorMode): string | number | undefined {
   if (mode === 'plain') return undefined;
@@ -53,12 +55,17 @@ export function convertClipboard(html: string, plain: string, mode: ColorMode = 
   const warnings = new Set<string>();
   const runs: RichTextElementTextInterface[] = [];
   let visited = 0;
+  const headings: Record<number, HeadingLevel> = {};
+  let line = 0;
+  let heading: HeadingLevel | undefined;
   const emit = (text: string, format: Format = {}, pre = false) => {
     if (!pre) {
       text = text.replace(/[\t\r\n ]+/g, ' ');
       if (!runs.length || /[\n ]$/.test(runs[runs.length - 1].text)) text = text.replace(/^ +/, '');
     }
     if (!text) return;
+    if (heading && text.trim()) headings[line] ??= heading;
+    line += text.split('\n').length - 1;
     runs.push({ i: 'm', text, ...format });
   };
   const newline = () => {
@@ -104,7 +111,11 @@ export function convertClipboard(html: string, plain: string, mode: ColorMode = 
     const cell = tag === 'TD' || tag === 'TH';
     const start = cell ? runs.length : cellStart;
     if (block && runs.length > (start ?? 0)) newline();
+    // Word and web pages mark headings as <h1>–<h3>; remember the line so it can become a RemNote heading.
+    const outerHeading = heading;
+    if (tag === 'H1' || tag === 'H2' || tag === 'H3') heading = Number(tag[1]) as HeadingLevel;
     for (const child of Array.from(node.childNodes)) visit(child, format, pre || tag === 'PRE' || style.whiteSpace.startsWith('pre'), depth + 1, start);
+    heading = outerHeading;
     if (cell) {
       // Word wraps each table cell in paragraphs; keep the row on one line.
       if (runs.length > (start ?? 0) && runs.at(-1)?.text === '\n') runs.pop();
@@ -120,5 +131,6 @@ export function convertClipboard(html: string, plain: string, mode: ColorMode = 
   if (!text && plain) return { text: plain, richText: [plain], coloredRuns: 0, warnings: ['No supported text in HTML; using the plain-text clipboard representation.'] };
   if (mode === 'palette') warnings.add('Colors are approximated to RemNote’s nine named colors. Near-black/white use the editor default.');
   else warnings.add('Exact shades may not display or persist in every RemNote version. Check the inserted text; use the palette if colors disappear.');
-  return { richText: runs, text, warnings: [...warnings], coloredRuns: runs.filter((r) => r.tc !== undefined).length };
+  return { richText: runs, text, warnings: [...warnings], coloredRuns: runs.filter((r) => r.tc !== undefined).length,
+    ...(Object.keys(headings).length ? { headings } : {}) };
 }

@@ -86,3 +86,11 @@ describe('text, formatting and safety', () => {
 it.each(['palette', 'exact', 'plain'] as const)('treats empty %s input as an empty box, without recursion or warnings', mode => {
   expect(convertClipboard('', '', mode)).toEqual({text:'',richText:[],coloredRuns:0,warnings:[]});
 });
+
+it('records the line of each <h1>–<h3> heading, as copied from Word', () => {
+  const html = '<h1><span style="color:#c00000">Kapitel 1</span></h1><p>Text</p><h2>Teil A</h2><p>a<br>b</p><h3>Detail</h3><h4>Klein</h4>';
+  const result = convertClipboard(html, '', 'palette');
+  expect(result.text).toBe('Kapitel 1\nText\nTeil A\na\nb\nDetail\nKlein');
+  expect(result.headings).toEqual({ 0: 1, 2: 2, 5: 3 });
+  expect(convertClipboard('<p>no headings</p>', '', 'palette').headings).toBeUndefined();
+});

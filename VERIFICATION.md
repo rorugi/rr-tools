@@ -1,3 +1,9 @@
+# RR Tools 0.4.18 headings
+
+The converter records the line of text inside <h1>–<h3> (Word's Heading 1–3 on the clipboard) as heading levels; h4–h6 stay normal. When lines are split (or for Multi-Paste), those lines, and lines starting with Markdown “# ”, “## ”, “### ” (hashes removed; #tag and #### unchanged), get setFontSize H1–H3 on their new Rem. Headings combine with flashcards and clozes. A single heading or single cloze line is now always created as its own Rem; before, a single cloze line would have been inserted at the caret with literal braces. Without line splitting the popup notes that headings need it. Tests cover heading line indices, Markdown rules, combination with cards/clozes, setFontSize and the popup; the built popup passes text, table and line browser checks in sandbox and native modes. Not verified live: the exact HTML of the user's Word version and RemNote's heading display.
+
+---
+
 # RR Tools 0.4.17 cloze flashcards
 
 With “Create flashcards” on, {{answer}}, {{cN::answer}} and {{cN::answer::hint}} in a pasted line become RemNote cloze runs: the answer keeps its formatting and gets a cId (equal N within a line share one cId, so they form one card) and, for hints, cloze-hint. Empty clozes are ignored; a line with clozes is not split at arrows. Cloze lines count as flashcards. Tests cover plain, grouped and hinted clozes, answers that resemble the cN prefix, colored answers, precedence over arrows, empty clozes and flashcards off; the built popup shows highlighted clozes and sends the cloze line in sandbox and native browser checks. Not verified live: RemNote's card generation from plugin-written cId runs and its display of cloze-hint in the user's client.

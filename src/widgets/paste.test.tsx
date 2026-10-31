@@ -186,3 +186,30 @@ it('falls back to plain clipboard text when rich reading is not allowed',async()
   expect(root.querySelector('[role="textbox"]')!.textContent).toBe('plain words');
   expect(root.querySelector('[role="alert"]')).toBeNull();
 });
+
+it('previews Word and Markdown headings and sends a single heading or cloze line as its own Rem',async()=>{
+  connectWith({});
+  await mount();toggle(lineOption(0),true);
+  copyText('<h1>Kapitel</h1><p>## Teil</p><p>Text</p>');
+  const items=Array.from(root.querySelectorAll('[aria-label="Pasted lines"] li'));
+  expect(items.map(li=>[li.className,li.textContent])).toEqual([['rr-h1','H1Kapitel'],['rr-h2','H2Teil'],['','Text']]);
+  expect(root.textContent).toContain('3 Rem(s) · 2 heading(s)');
+  copyText('<h2>Nur Überschrift</h2>');
+  await act(async()=>{Simulate.click(pasteButton());});
+  expect((requests()[0][0] as {lines:{heading:number}[]}).lines).toEqual([{front:['Nur Überschrift'],heading:2,text:'Nur Überschrift'}]);
+});
+it('sends a single cloze line as a card instead of literal braces',async()=>{
+  connectWith({});
+  await mount();toggle(lineOption(0),true);toggle(lineOption(1),true);
+  copyText('','Wien ist {{Hauptstadt}}');
+  await act(async()=>{Simulate.click(pasteButton());});
+  expect((requests()[0][0] as {lines:{clozes:number}[]}).lines[0].clozes).toBe(1);
+});
+it('points out that headings need line splitting',async()=>{
+  connectWith({});
+  await mount();
+  copyText('<h1>Kapitel</h1><p>Text</p>');
+  expect(root.querySelector('[role="note"]')!.textContent).toContain('Turn on “Split lines into separate Rems”');
+  toggle(lineOption(0),true);
+  expect(root.querySelector('[role="note"]')).toBeNull();
+});

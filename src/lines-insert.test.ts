@@ -4,7 +4,7 @@ import { describeLines, insertLines } from './lines-insert';
 import { readPasteSettings, DEFAULT_PASTE_SETTINGS } from './paste-settings';
 
 type Fake = { _id: string; parent: string | null; position?: number; text: unknown[]; backText?: unknown[]; direction?: string;
-  setText: ReturnType<typeof vi.fn>; setBackText: ReturnType<typeof vi.fn>; setPracticeDirection: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn>;
+  setText: ReturnType<typeof vi.fn>; setFontSize: ReturnType<typeof vi.fn>; heading?: string; setBackText: ReturnType<typeof vi.fn>; setPracticeDirection: ReturnType<typeof vi.fn>; setParent: ReturnType<typeof vi.fn>;
   positionAmongstSiblings: () => Promise<number | undefined>; getChildrenRem: () => Promise<Fake[]> };
 function setup() {
   const rems = new Map<string, Fake>();
@@ -12,6 +12,7 @@ function setup() {
   const make = (id: string, parent: string | null = null, text: unknown[] = []): Fake => {
     const rem: Fake = { _id: id, parent, text,
       setText: vi.fn(async (value: unknown[]) => { rem.text = value; }),
+      setFontSize: vi.fn(async (value: string) => { rem.heading = value; }),
       setBackText: vi.fn(async (value: unknown[]) => { rem.backText = value; }),
       setPracticeDirection: vi.fn(async (value: string) => { rem.direction = value; }),
       setParent: vi.fn(async (value: string | null, position: number) => { rem.parent = value; rem.position = position; }),
@@ -87,4 +88,12 @@ it('remembers only valid paste settings and falls back field by field', () => {
   expect(readPasteSettings({ mode: 'exact', splitLines: true, flashcards: 'yes', headerRow: true, extra: 1 }))
     .toEqual({ mode: 'exact', headerRow: true, headerColumn: false, splitLines: true, flashcards: false });
   expect(readPasteSettings({ mode: 'neon' }).mode).toBe('palette');
+});
+
+it('sets the heading size for heading lines only', async () => {
+  const { typed, rems, make } = setup();
+  make('doc');
+  await insertLines(typed, { kind: 'end', remId: 'doc' }, [{ front: ['Kapitel'], heading: 1, text: 'Kapitel' }, line('Text'), { front: ['Teil'], heading: 3, text: 'Teil' }]);
+  expect(['new-1', 'new-2', 'new-3'].map(id => rems.get(id)!.heading)).toEqual(['H1', undefined, 'H3']);
+  expect(rems.get('new-2')!.setFontSize).not.toHaveBeenCalled();
 });

@@ -43,22 +43,38 @@ it('limits the number of lines', () => {
 
 const ids = () => { let n = 0; return () => `id${++n}`; };
 it('turns {{…}} into cloze runs with one card per cloze', () => {
-  const [line] = splitLines(['Die Hauptstadt von {{Österreich}} ist {{Wien}}.'], true, ids());
+  const [line] = splitLines(['Die Hauptstadt von {{Österreich}} ist {{Wien}}.'], true, { newId: ids() });
   expect(line).toEqual({ front: ['Die Hauptstadt von ', { i: 'm', text: 'Österreich', cId: 'id1' }, ' ist ', { i: 'm', text: 'Wien', cId: 'id2' }, '.'],
     clozes: 2, text: 'Die Hauptstadt von {{Österreich}} ist {{Wien}}.' });
 });
 it('groups Anki-style {{c1::…}} clozes, keeps hints, and handles answers that look like the prefix', () => {
-  const [line] = splitLines(['{{c1::H}}{{c1::2}}{{c2::O::element}} and {{c3::c}}'], true, ids());
+  const [line] = splitLines(['{{c1::H}}{{c1::2}}{{c2::O::element}} and {{c3::c}}'], true, { newId: ids() });
   expect(line.front).toEqual([{ i: 'm', text: 'H', cId: 'id1' }, { i: 'm', text: '2', cId: 'id1' },
     { i: 'm', text: 'O', cId: 'id2', 'cloze-hint': 'element' }, ' and ', { i: 'm', text: 'c', cId: 'id3' }]);
   expect(line.clozes).toBe(3);
 });
 it('keeps colors inside a cloze and takes precedence over arrows', () => {
-  const [line] = splitLines([red('{{rojo}}'), ' >> red'], true, ids());
+  const [line] = splitLines([red('{{rojo}}'), ' >> red'], true, { newId: ids() });
   expect(line).toMatchObject({ front: [{ i: 'm', text: 'rojo', tc: 1, cId: 'id1' }, ' >> red'], clozes: 1 });
   expect(line.back).toBeUndefined();
 });
 it('leaves braces alone when flashcards are off or the cloze is empty', () => {
   expect(splitLines(['{{a}}'], false)[0]).toEqual({ front: ['{{a}}'], text: '{{a}}' });
   expect(splitLines(['{{ }} and {{c1::}}'], true)[0].clozes).toBeUndefined();
+});
+
+it('marks lines from Word headings and keeps their formatting', () => {
+  expect(splitLines([red('Kapitel 1'), '\nText\n\nTeil A'], false, { headings: { 0: 1, 3: 2 } })).toEqual([
+    { front: [red('Kapitel 1')], heading: 1, text: 'Kapitel 1' }, { front: ['Text'], text: 'Text' }, { front: ['Teil A'], heading: 2, text: 'Teil A' },
+  ]);
+});
+it('turns Markdown #, ##, ### at the start of a line into headings and removes the hashes', () => {
+  expect(splitLines(['# Eins\n##  Zwei\n### Drei\n#### Vier\n#tag bleibt\n## \nText # nicht'], false).map(l => [l.front, l.heading])).toEqual([
+    [['Eins'], 1], [['Zwei'], 2], [['Drei'], 3], [['#### Vier'], undefined], [['#tag bleibt'], undefined], [['##'], undefined], [['Text # nicht'], undefined],
+  ]);
+});
+it('combines a heading with a flashcard or cloze', () => {
+  expect(splitLines(['## perro >> dog'], true)[0]).toMatchObject({ front: ['perro'], back: ['dog'], heading: 2 });
+  expect(splitLines([{ i: 'm', text: '# ', b: true }, 'Hauptstadt {{Wien}}'], true, { newId: () => 'x' })[0])
+    .toMatchObject({ front: ['Hauptstadt ', { i: 'm', text: 'Wien', cId: 'x' }], clozes: 1, heading: 1 });
 });
